@@ -32,4 +32,22 @@ CROSS_COMPILER_TARGET_ARCHS =
 #   take effect.
 #IOCS_APPL_TOP = </IOC/path/to/application/top>
 
-UASDK = $(TOP)/../../../uasdkcppclient-src-debian7.7-x86_64-gcc4.7.2-v1.5.3-346/sdk
+# When developing against a public or shared repo:
+#   Do not edit the settings in this file!
+#
+# You may create a file CONFIG_SITE.local pointing to your
+# local settings, e.g.
+#   CROSS_COMPILER_TARGET_ARCHS = RTEMS-mvme5500
+
+# Inside an embedded TOP, use the following definitions
+# pointing to the configuration of the parent module
+-include $(TOP)/../../CONFIG_SITE.local
+-include $(TOP)/../../configure/CONFIG_SITE.local
+-include $(TOP)/../configure/CONFIG_SITE.local
+
+# Inside a standalone TOP, use the following definitions instead
+#-include $(TOP)/../CONFIG_SITE.local
+#-include $(TOP)/../configure/CONFIG_SITE.local
+
+# The definition in this directory always overrides
+-include $(TOP)/configure/CONFIG_SITE.local
