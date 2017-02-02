@@ -21,6 +21,23 @@
 
 OPCUA=$(TOP)/..
 
-# EPICS_BASE usually appears last so other apps can override stuff:
+# When developing against a public or shared repo:
+#   Do not edit the locations in this file!
+#
+# You may create a file RELEASE.local pointing to your locations
+# of the OPCUA device support and EPICS_BASE, e.g.
+#   OPCUA = /home/install/epics/opcua
+#   EPICS_BASE = /home/install/epics/base
+#
+# Inside an embedded TOP, use the following definitions
+# pointing to the configuration of the parent module
+-include $(TOP)/../../RELEASE.local
+-include $(TOP)/../../configure/RELEASE.local
+-include $(TOP)/../configure/RELEASE.local
 
-EPICS_BASE=$(TOP)/../../../BASE
+# Inside a standalone TOP, use the following definitions instead
+#-include $(TOP)/../RELEASE.local
+#-include $(TOP)/../configure/RELEASE.local
+
+# The definition in this directory always overrides
+-include $(TOP)/configure/RELEASE.local

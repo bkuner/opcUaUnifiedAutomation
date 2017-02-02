@@ -32,4 +32,18 @@ CROSS_COMPILER_TARGET_ARCHS =
 #   take effect.
 #IOCS_APPL_TOP = </IOC/path/to/application/top>
 
-UASDK = $(TOP)/../../uasdkcppclient-src-debian7.7-x86_64-gcc4.7.2-v1.5.3-346/sdk
+#UASDK = $(TOP)/../../uasdkcppclient-src-debian7.7-x86_64-gcc4.7.2-v1.5.3-346/sdk
+
+# When developing against a public or shared repo:
+#   Do not edit the settings in this file!
+#
+# You may create a file CONFIG_SITE.local pointing to your
+# local settings, e.g.
+#   UASDK = /home/install/UA-SDK/1.5.3/sdk
+
+# Configuration "above the TOP" for all modules in that place
+-include $(TOP)/../CONFIG_SITE.local
+-include $(TOP)/../configure/CONFIG_SITE.local
+
+# The definition in this directory always overrides
+-include $(TOP)/configure/CONFIG_SITE.local
