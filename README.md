@@ -1,25 +1,27 @@
 # opcUaUnifiedAutomation
 
-EPICS opcUa device support with Unified Automation C++ based [client sdk] (https://www.unified-automation.com/products/client-sdk.html).
-
-## Installation
-
-* Depending on your linux installation, install *libcrypto*
-
-To prevent local settings from being traced by git create your local configuration 
-files. They will be ignored by git:
-
-* Create file *configure/RELEASE.local* and set *EPICS_BASE* variable to your EPICS installation.
-
-* Create file *configure/CONFIG_SITE.local* and set *UASDK* variable to your UA-SDK installation.
+EPICS opcUa device support with Unified Automation C++ based
+[client sdk](https://www.unified-automation.com/products/client-sdk.html).
 
 
-```
-**/configure/*.local
-```
+## Build and Installation
+
+* This module has a standard EPICS module structure. It compiles against
+  recent versions of EPICS Base 3.14, 3.15 and 3.16.
+
+* Depending on your Linux installation, install *libcrypto*.
+
+* When cloning this module, you may create local settings that are not being
+  traced by git.
+
+  * Create *configure/RELEASE.local* and set *EPICS_BASE* to point to your
+    EPICS installation.
+
+  * Create *configure/CONFIG_SITE.local* and set *UASDK* to point to your
+    Unified Automation OPC UA C++ Client SDK installation.
+
 
 ## Features
-
 
 * Data conversion for all integer and float data types. Data loss may occur for
   conversion from float to integer types and from long to short integer types.

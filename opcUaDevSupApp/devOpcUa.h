@@ -41,8 +41,7 @@ typedef struct OPCUA_Item {
     int itemDataType;       /* OPCUA Datatype */
     epicsType recDataType;  /* Data type of the records VAL/RVAL field */
     epicsType inpDataType;  /* OUT records: the type of the records input = VAL field, INP records = NULL */
-    int itemIdx;            /* Index of this item in 
-                               DevUaSubscriptioN::dataChange(clientSubscriptionHandle.. */
+    int itemIdx;            /* Index of this item in UaNodeId vector */
 
     epicsAnyVal varVal;     /* buffer to hold the value got from Opc for all scalar values, including string   */
     void *pRecVal;          /* point to records val/rval/oval field */
@@ -63,6 +62,7 @@ typedef struct OPCUA_Item {
 
     dbCommon *prec;
     struct OPCUA_Item *next;/* It depends on the used opcUa library if the OPCUA_Items are organized as list or as vector. */
+
 } OPCUA_ItemINFO;
 
 #ifdef __cplusplus

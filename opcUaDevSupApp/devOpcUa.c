@@ -27,6 +27,7 @@
 #include "dbScan.h"
 #include "epicsExport.h"
 #include <epicsTypes.h>
+#include <initHooks.h>
 #include "devSup.h"
 #include "recSup.h"
 #include "recGbl.h"
@@ -59,16 +60,15 @@
 #include <devOpcUa.h>
 #include <drvOpcUa.h>
 
-int debug_level(dbCommon *prec) {
-    OPCUA_ItemINFO * p = (OPCUA_ItemINFO *) prec->dpvt;
-    if(p)
-        return p->debug;
+inline int debug_level(dbCommon *prec) {
+    if(prec->dpvt)
+        return ((OPCUA_ItemINFO *) prec->dpvt)->debug;
     else
         return 0;
 }
+
 #define DEBUG_LEVEL debug_level((dbCommon*)prec)
 
-int onceFlag  = 0;
 static  long         read(dbCommon *prec);
 static  long         write(dbCommon *prec);
 static  void         outRecordCallback(CALLBACK *pcallback);
@@ -115,7 +115,7 @@ typedef struct {
    DEVSUPFUN init_record;
    DEVSUPFUN get_ioint_info;
    DEVSUPFUN write_record;
-}OpcUaDSET;
+} OpcUaDSET;
 
 OpcUaDSET devlongoutOpcUa =    {5, NULL, init, init_longout, get_ioint_info, write_longout  };
 epicsExportAddress(dset,devlongoutOpcUa);
@@ -171,7 +171,7 @@ struct aodset { // analog input dset
 epicsExportAddress(dset,devaoOpcUa);
 
 static long init_waveformRecord();
-static long read_sa();
+static long read_wf();
 struct {
     long number;
     DEVSUPFUN report;
@@ -186,7 +186,7 @@ struct {
     NULL,
     init_waveformRecord,
     get_ioint_info,
-    read_sa,
+    read_wf,
     NULL
 };
 epicsExportAddress(dset,devwaveformOpcUa);
@@ -194,14 +194,25 @@ epicsExportAddress(dset,devwaveformOpcUa);
 /***************************************************************************
  *		Defines and Locals
  **************************************************************************-*/
+
+static void opcuaMonitorControl (initHookState state)
+{
+    switch (state) {
+    case initHookAfterDatabaseRunning:
+        OpcUaSetupMonitors();
+        break;
+    default:
+        break;
+    }
+}
+
 long init (int after)
 {
+    static int done = 0;
 
-    if( after) {
-            if( !onceFlag ) {
-                onceFlag = 1;
-                return OpcUaSetupMonitors(); // read opc Items to set: records initial value, get pOPCUA_ItemINFO->itemDataType
-            }
+    if (!done) {
+        done = 1;
+        return (initHookRegister(opcuaMonitorControl));
     }
     return 0;
 }
@@ -210,58 +221,50 @@ long init_common (dbCommon *prec, struct link* plnk, int recType, void *val, int
 {
     OPCUA_ItemINFO* pOPCUA_ItemINFO;
 
-    if(!prec) {
-        recGblRecordError(S_db_notFound, prec,"Fatal error: init_record record has NULL-pointer");
-        getchar();                                                                                  
-        return S_db_notFound;
-    }                                                                                               
-    if(!plnk->type) {
-        recGblRecordError(S_db_badField, prec,"Fatal error: init_record INP field not initialized (It has value 0!!!)");
-        getchar();                                                                                  
-        return S_db_badField;
-    }                                                                                               
-    if(plnk->type != INST_IO) {                                                                 
-        recGblRecordError(S_db_badField, prec,"init_record Illegal INP/OUT field (INST_IO expected");
-        return S_db_badField;                                                                       
+    if(plnk->type != INST_IO) {
+        long status;
+        if (inpType) status = S_dev_badOutType; else status = S_dev_badInpType;
+        recGblRecordError(status, prec, "devOpcUa (init_record) Bad INP/OUT link type (must be INST_IO)");
+        return status;
     }                                                                                               
 
     pOPCUA_ItemINFO =  (OPCUA_ItemINFO *) calloc(1,sizeof(OPCUA_ItemINFO));
+    if (!pOPCUA_ItemINFO) {
+        long status = S_db_noMemory;
+        recGblRecordError(status, prec, "devOpcUa (init_record) Out of memory, calloc() failed");
+        return status;
+    }
+
     if(strlen(plnk->value.instio.string) < ITEMPATHLEN) {
         strcpy(pOPCUA_ItemINFO->ItemPath,plnk->value.instio.string);
-        if( setOPCUA_Item(pOPCUA_ItemINFO) ) {
-            recGblRecordError(S_db_badField, prec,"Can't parse");
-            free(pOPCUA_ItemINFO);
-            pOPCUA_ItemINFO = NULL;
-        }
+        addOPCUA_Item(pOPCUA_ItemINFO);
     }
-    else
-        recGblRecordError(S_db_badField, prec,"init_record Illegal INP field (INST_IO expected");
-    prec->dpvt = (void *) pOPCUA_ItemINFO;
+    else {
+        long status = S_db_badField;
+        recGblRecordError(status, prec, "devOpcUa (init_record) INP/OUT field too long");
+        return status;
+    }
+
+    prec->dpvt = pOPCUA_ItemINFO;
     pOPCUA_ItemINFO->recDataType=recType;
     pOPCUA_ItemINFO->pRecVal = val;
     pOPCUA_ItemINFO->prec = prec;
     pOPCUA_ItemINFO->debug = prec->tpro;
     pOPCUA_ItemINFO->flagLock = epicsMutexMustCreate();
-    if(pOPCUA_ItemINFO->debug >= 2) errlogPrintf("init_common %s\t PACT= %i, recVal=%p\n",prec->name,prec->pact,pOPCUA_ItemINFO->pRecVal);
+    if(pOPCUA_ItemINFO->debug >= 2)
+        errlogPrintf("init_common %s\t PACT= %i, recVal=%p\n", prec->name, prec->pact, pOPCUA_ItemINFO->pRecVal);
     // get OPC item type in init -> after
 
-    if(!inpType) {
-        if(prec->scan <  SCAN_IO_EVENT) {
-                recGblRecordError(S_db_badField, prec, "init_record Illegal SCAN field, IO/Intr + Periodic supported)");
-        	return S_db_badField;
-        }
-        scanIoInit(&(pOPCUA_ItemINFO->ioscanpvt));
-    }
-    else {
-        epicsMutexLock(pOPCUA_ItemINFO->flagLock);
-        pOPCUA_ItemINFO->noOut = 0;
+    if(inpType) { // is OUT record
         pOPCUA_ItemINFO->inpDataType = inpType;
         pOPCUA_ItemINFO->pInpVal = inpVal;
-        epicsMutexUnlock(pOPCUA_ItemINFO->flagLock);
         callbackSetCallback(outRecordCallback, &(pOPCUA_ItemINFO->callback));
         callbackSetUser(prec, &(pOPCUA_ItemINFO->callback));
     }
-//  errlogPrintf("init_common %s\t pOPCUA_ItemINFO=%p\n",prec->name,pOPCUA_ItemINFO);
+    else {
+        scanIoInit(&(pOPCUA_ItemINFO->ioscanpvt));
+    }
+    //  errlogPrintf("init_common %s\t pOPCUA_ItemINFO=%p\n",prec->name,pOPCUA_ItemINFO);
     return 0;
 }
 
@@ -550,7 +553,7 @@ long init_waveformRecord(struct waveformRecord* prec) {
     return  ret;
 }
 
-long read_sa(struct waveformRecord *prec) {
+long read_wf(struct waveformRecord *prec) {
     OPCUA_ItemINFO* pOPCUA_ItemINFO = (OPCUA_ItemINFO*)prec->dpvt;
     //epicsMutexLock(pOPCUA_ItemINFO->flagLock);
     int ret = read((dbCommon*)prec);
@@ -579,11 +582,10 @@ static long get_ioint_info(int cmd, dbCommon *prec, IOSCANPVT * ppvt) {
     OPCUA_ItemINFO* pOPCUA_ItemINFO = (OPCUA_ItemINFO*)prec->dpvt;
     if(!prec || !prec->dpvt)
         return 1;
-    if(!cmd) {
-        *ppvt = pOPCUA_ItemINFO->ioscanpvt;
-        if(DEBUG_LEVEL >= 2)
-            errlogPrintf("get_ioint_info %s\t ioscanpvt=%p\n",prec->name,*ppvt);
-    }
+    *ppvt = pOPCUA_ItemINFO->ioscanpvt;
+    if(DEBUG_LEVEL >= 2)
+        errlogPrintf("get_ioint_info %s %s I/O event list - ioscanpvt=%p\n",
+                     prec->name, cmd?"removed from":"added to", *ppvt);
     return 0;
 }
 
@@ -592,6 +594,7 @@ static long read(dbCommon * prec) {
     OPCUA_ItemINFO* pOPCUA_ItemINFO = (OPCUA_ItemINFO*)prec->dpvt;
     pOPCUA_ItemINFO->debug = prec->tpro;
     long ret = 0;
+
     if(DEBUG_LEVEL >= 3)
         errlogPrintf("read %s\t UDF=%i noOut:=%i\n",prec->name,prec->udf,pOPCUA_ItemINFO->noOut);
     if(!pOPCUA_ItemINFO) {
@@ -619,9 +622,9 @@ static long read(dbCommon * prec) {
 }
 
 static long write(dbCommon *prec) {
-    long ret = 0;
     OPCUA_ItemINFO* pOPCUA_ItemINFO = (OPCUA_ItemINFO*)prec->dpvt;
     pOPCUA_ItemINFO->debug = prec->tpro;
+    long ret = 0;
 
     if(DEBUG_LEVEL >= 3)
         errlogPrintf("write %s\t UDF:%i, noOut=%i\n",prec->name,prec->udf,pOPCUA_ItemINFO->noOut);

@@ -31,7 +31,7 @@ extern "C" {
     extern long opcUa_close(int verbose);
     extern long OpcUaSetupMonitors(void);
     extern long opcUa_io_report (int); /* Write IO report output to stdout. */
-    extern long setOPCUA_Item(OPCUA_ItemINFO *h);
+    extern void addOPCUA_Item(OPCUA_ItemINFO *h);
     extern void signalHandler( int signum );
 // iocShell:
     extern long OpcUaWriteItems(OPCUA_ItemINFO* pOU_ItemINFO);

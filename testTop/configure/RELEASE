@@ -14,15 +14,38 @@
 #  RELEASE.Common.$(T_A)
 #  RELEASE.$(EPICS_HOST_ARCH).$(T_A)
 #
-# This file should ONLY define paths to other support modules,
-# or include statements that pull in similar RELEASE files.
-# Build settings that are NOT module paths should appear in a
-# CONFIG_SITE file.
+# This file is parsed by both GNUmake and an EPICS Perl script,
+# so it can ONLY contain definititions of paths to other support
+# modules, variable definitions that are used in module paths,
+# and include statements that pull in other RELEASE files.
+# Variables may be used before their values have been set.
+# Build variables that are NOT used in paths should be set in
+# the CONFIG_SITE file.
+
+# Variables and paths to dependent modules:
+#MODULES = /path/to/modules
+#MYMODULE = $(MODULES)/my-module
 
 OPCUA=$(TOP)/..
 
-# EPICS_BASE usually appears last so other apps can override stuff:
+# EPICS_BASE should appear last so earlier modules can override stuff:
+#EPICS_BASE = $(OPCUA)/../../BASE
 
-#EPICS_BASE=$(TOP)/../../../BASE
-# to keep local configuration outside git control define BASE and whatelse local
-include $(TOP)/configure/RELEASE.local
+# Set RULES here if you want to use build rules from somewhere
+# other than EPICS_BASE:
+#RULES = $(MODULES)/build-rules
+
+# These allow developers to override the RELEASE variable settings
+# without having to modify the configure/RELEASE file itself.
+
+# Inside an embedded TOP, use the following definitions
+# pointing to the configuration of the parent module
+-include $(TOP)/../../RELEASE.local
+-include $(TOP)/../../configure/RELEASE.local
+-include $(TOP)/../configure/RELEASE.local
+-include $(TOP)/configure/RELEASE.local
+
+# Inside a standalone TOP, use the following definitions instead
+#-include $(TOP)/../RELEASE.local
+#-include $(TOP)/../configure/RELEASE.local
+#-include $(TOP)/configure/RELEASE.local

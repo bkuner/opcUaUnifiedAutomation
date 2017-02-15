@@ -10,7 +10,7 @@ html/
 O.*/
 cdCommands
 envPaths
-#**/configure/*.local
+**/configure/*.local
 
 # Backup and temp files
 *~
