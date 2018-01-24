@@ -283,8 +283,7 @@ void DevUaClient::connectionStatusChanged(
                 || serverConnectionStatus == UaClient::NewSessionCreated
                 || (serverConnectionStatus == UaClient::Disconnected && initialSubscriptionOver)) {
             this->subscribe();
-            this->getNodes();
-            this->createMonitoredItems();
+            OpcUaSetupMonitors();
         }
         break;
     case UaClient::Disconnected:
@@ -484,6 +483,13 @@ long DevUaClient::getNodes()
     ss <<"([a-z0-9_-]+)(["<< isNodeIdDelim << isNameSpaceDelim<<"])(.*)";
     rex = ss.str();  // ="([a-z0-9_-]+)([,:])(.*)";
     vUaNodeId.clear();
+
+    // Defer initialization if server is down when the IOC boots
+    if (!m_pSession->isConnected()) {
+         errlogPrintf("DevUaClient::getNodes() Session not connected - deferring initialisation\n");
+         initialSubscriptionOver = true;
+         return 1;
+    }
 
     browsePaths.create(nrOfItems);
     for(i=0;i<nrOfItems;i++) {
