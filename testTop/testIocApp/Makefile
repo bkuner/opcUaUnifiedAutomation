@@ -3,7 +3,7 @@ include $(TOP)/configure/CONFIG
 #----------------------------------------
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 
-DB = testServer.db freeopcuaTEST.db HPFR1H1RF.db #OPCUA_RECORD.db
+DB = testServer.db freeopcuaTEST.db
 
 IOCS += OPCUAIOC
 
