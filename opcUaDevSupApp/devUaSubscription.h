@@ -18,15 +18,11 @@
 #ifndef DEVUASUBSCRIPTION_H
 #define DEVUASUBSCRIPTION_H
 
-#include <dbCommon.h>
+#include "drvOpcUa.h"
+#include "devUaClient.h"
+#include <uasubscription.h>
 
-#include <uabase.h>
-#include <uaclientsdk.h>
-
-using namespace UaClientSdk;
-
-class DevUaSubscription :
-    public UaSubscriptionCallback
+class DevUaSubscription :public UaClientSdk::UaSubscriptionCallback
 {
     UA_DISABLE_COPY(DevUaSubscription);
 public:
@@ -44,14 +40,14 @@ public:
         OpcUa_UInt32                clientSubscriptionHandle,
         UaEventFieldLists&          eventFieldList);
 
-    UaStatus createSubscription(UaSession *pSession);
+    UaStatus createSubscription(UaClientSdk::UaSession *pSession);
     UaStatus deleteSubscription();
     UaStatus createMonitoredItems(std::vector<UaNodeId> &vUaNodeId,std::vector<OPCUA_ItemINFO *> *m_vectorUaItemInfo);
 
     int debug;              // debug output independant from single channels
 private:
-    UaSession*                  m_pSession;
-    UaSubscription*             m_pSubscription;
+    UaClientSdk::UaSession*                  m_pSession;
+    UaClientSdk::UaSubscription*             m_pSubscription;
     std::vector<OPCUA_ItemINFO *> *m_vectorUaItemInfo;
 };
 #endif // DEVUASUBSCRIPTION_H

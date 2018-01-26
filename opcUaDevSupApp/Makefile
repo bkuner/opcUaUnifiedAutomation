@@ -6,8 +6,8 @@ include $(TOP)/configure/CONFIG
 DBD = opcUa.dbd
 
 LIBRARY_HOST += opcUa
-opcUa_SRCS = devOpcUa.cpp drvOpcUa.cpp devUaSubscription.cpp
-INC += devOpcUa.h drvOpcUa.h
+opcUa_SRCS = devOpcUa.cpp drvOpcUa.cpp devUaClient.cpp devUaSubscription.cpp
+INC += drvOpcUa.h
 
 UASDK_LIBS = uabase uaclient uapki uastack xmlparser
 USR_SYS_LIBS += boost_regex

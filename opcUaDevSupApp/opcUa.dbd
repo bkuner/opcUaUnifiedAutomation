@@ -21,7 +21,7 @@ function(OpcUaSetupMonitors)
 function(OpcUaWriteItems)
 function(opcUa_io_report)
 
-variable(drvOpcua_AutoConnectInterval, double)
+# Now part of class DevUaClient variable(drvOpcua_AutoConnectInterval, double)
 variable(drvOpcua_DefaultPublishInterval, double)
 variable(drvOpcua_DefaultSamplingInterval, double)
 variable(drvOpcua_DefaultQueueSize)

@@ -6,8 +6,8 @@ dbLoadDatabase "dbd/OPCUAIOC.dbd",0,0
 ${IOC}_registerRecordDeviceDriver pdbbase
 
 # PLC_PHA3X by Harry
-drvOpcuaSetup("opc.tcp://193.149.12.76:4840","","",0)
-dbLoadRecords("testIocApp/PAHX3.db")
+#drvOpcuaSetup("opc.tcp://193.149.12.76:4840","","",0)
+#dbLoadRecords("testIocApp/PAHX3.db")
 
 # local freeOpcUaEpicsServer/bin/linux-x86_64/server
 #drvOpcuaSetup("opc.tcp://localhost:4841","","",0)
@@ -18,8 +18,19 @@ dbLoadRecords("testIocApp/PAHX3.db")
 #drvOpcuaSetup("opc.tcp://localhost:48010","","",0)
 #dbLoadRecords("db/OPCUA_RECORD.db")
 
-opcuaDebug(1)
+# FUG PLC, HPFR1H1RF Schwerlasthalle
+drvOpcuaSetup("opc.tcp://172.18.16.221:4840","","",0,0)
+dbLoadRecords("db/HPFR1H1RF.db")
+
+# PLC_PSI by David
+#drvOpcuaSetup("opc.tcp://193.149.12.196:4840","","",0)
+#dbLoadRecords("testIocApp/PLC_PSI.db")
+
 setIocLogDisable 1
+
+# See init warnings
+opcuaDebug(0)
 iocInit
+# Be quiet
 opcuaDebug(0)
 opcuaStat(0)

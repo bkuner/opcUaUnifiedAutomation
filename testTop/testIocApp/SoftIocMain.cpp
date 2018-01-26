@@ -31,9 +31,9 @@
     #include <unistd.h>
 #endif
 
-#include <epicsThread.h>
-#include <iocsh.h>
-
+#include "epicsThread.h"
+#include "iocsh.h"
+	
 
 int main(int argc,char *argv[])
 {

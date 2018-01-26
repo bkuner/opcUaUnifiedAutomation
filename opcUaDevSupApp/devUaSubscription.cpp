@@ -16,21 +16,14 @@
 *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 \*************************************************************************/
 
-#include <uasubscription.h>
-#include <uasession.h>
-
-#include <epicsTypes.h>
-#include <epicsPrint.h>
-#include <epicsExport.h>
-#include <epicsTime.h>
-#include <dbScan.h>
-
-#include "devOpcUa.h"
 #include "drvOpcUa.h"
+#include "devUaClient.h"
 #include "devUaSubscription.h"
+#include <epicsExport.h>
+
+using namespace UaClientSdk;
 
 // Configurable default for publishing interval
-
 static double drvOpcua_DefaultPublishInterval = 100.0;  // ms
 
 extern "C" {
@@ -131,7 +124,7 @@ void DevUaSubscription::dataChange(
 
         if(uaItem->debug >= 4)
             errlogPrintf("\tepicsType: %2d,%s opcType%2d:%s flagSuppressWrite:%d\n",
-                         uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
+                    uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
                     uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
                     uaItem->flagSuppressWrite);
     } //end for

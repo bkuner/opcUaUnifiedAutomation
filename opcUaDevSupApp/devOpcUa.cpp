@@ -27,8 +27,6 @@
 #include <dbScan.h>
 #include <dbStaticLib.h>
 #include <epicsExport.h>
-#include <epicsTypes.h>
-#include <errlog.h>
 #include <initHooks.h>
 #include <devSup.h>
 #include <recSup.h>
@@ -60,11 +58,8 @@
 #include <waveformRecord.h>
 //#undef  GEN_SIZE_OFFSET
 
-#include "uabase.h"
-#include "uaclientsdk.h"
-
-#include "devOpcUa.h"
 #include "drvOpcUa.h"
+#include "devUaClient.h"
 
 #ifdef _WIN32
 __inline int debug_level(dbCommon *prec) {
