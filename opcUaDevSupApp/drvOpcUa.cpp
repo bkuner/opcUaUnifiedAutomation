@@ -291,7 +291,6 @@ long OPCUA_ItemINFO::write(UaVariant &tempValue)
     tempNode.copyTo(&nodesToWrite[0].NodeId);
     nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
     tempValue.copyTo(&nodesToWrite[0].Value.Value);
-printf("HUHU3\n");
     status = pMyClient->writeFunc(serviceSettings,nodesToWrite,results,diagnosticInfos);
     if ( status.isBad()  ) // write on a read only node is notBad. Can't be checked here!!
     {
