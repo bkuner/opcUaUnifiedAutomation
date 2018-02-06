@@ -64,9 +64,8 @@ void DevUaSubscription::dataChange(
     {
         struct dataChangeError {};
         OPCUA_ItemINFO* uaItem = m_vectorUaItemInfo->at(dataNotifications[i].ClientHandle);
-        if(debug>3)
-            errlogPrintf("\t%s\n",uaItem->prec->name);
-        else if(uaItem->debug >= 2)
+
+        if(uaItem->debug >= 2)
             errlogPrintf("dataChange: %s %s\n",timeBuf,uaItem->prec->name);
         epicsMutexLock(uaItem->flagLock);
         try {

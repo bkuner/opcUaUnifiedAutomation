@@ -681,8 +681,6 @@ long read_stringin (struct stringinRecord* prec)
 {
     char buf[256];
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
-    int flagSuppressWrite = uaItem->flagSuppressWrite;
-    int udf   = prec->udf;
     long ret = 0;
 
     epicsMutexLock(uaItem->flagLock);
@@ -692,8 +690,7 @@ long read_stringin (struct stringinRecord* prec)
         prec->udf = FALSE;	// stringinRecord process doesn't set udf field in case of no convert!
     }
     epicsMutexUnlock(uaItem->flagLock);
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_stringin  %s %s VAL:%s\n",prec->name,getTime(buf),prec->val);
-    if(DEBUG_LEVEL >= 3) errlogPrintf("\tflagSuppressWrite %d->%d, UDF %d->%d \n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("write_stringin  %s %s VAL:%s UDF %d\n",prec->name,getTime(buf),prec->val,prec->udf);
     return ret;
 }
 
@@ -767,6 +764,64 @@ long read_wf(struct waveformRecord *prec)
     uaItem->debug = prec->tpro;
     
     epicsMutexLock(uaItem->flagLock);
+
+    try{
+        UaVariant &val = uaItem->varVal;
+        if(val.isArray()){
+            UaByteArray   aByte;
+            UaInt16Array  aInt16;
+            UaUInt16Array aUInt16;
+            UaInt32Array  aInt32;
+            UaUInt32Array aUInt32;
+            UaFloatArray  aFloat;
+            UaDoubleArray aDouble;
+
+            if(val.arraySize() <= uaItem->arraySize) {
+                switch(uaItem->recDataType) {
+                case epicsInt8T:
+                case epicsUInt8T:
+                    val.toByteArray( aByte);
+                    memcpy(prec->bptr,aByte.data(),sizeof(epicsInt8)*uaItem->arraySize);
+                    break;
+                case epicsInt16T:
+                    val.toInt16Array( aInt16);
+                    memcpy(prec->bptr,aInt16.rawData(),sizeof(epicsInt16)*uaItem->arraySize);
+                    break;
+                case epicsEnum16T:
+                case epicsUInt16T:
+                    val.toUInt16Array( aUInt16);
+                    memcpy(prec->bptr,aUInt16.rawData(),sizeof(epicsUInt16)*uaItem->arraySize);
+                    break;
+                case epicsInt32T:
+                    val.toInt32Array( aInt32);
+                    memcpy(prec->bptr,aInt32.rawData(),sizeof(epicsInt32)*uaItem->arraySize);
+                    break;
+                case epicsUInt32T:
+                    val.toUInt32Array( aUInt32);
+                    memcpy(prec->bptr,aUInt32.rawData(),sizeof(epicsUInt32)*uaItem->arraySize);
+                    break;
+                case epicsFloat32T:
+                    val.toFloatArray( aFloat);
+                    memcpy(prec->bptr,aFloat.rawData(),sizeof(epicsFloat32)*uaItem->arraySize);
+                    break;
+                case epicsFloat64T:
+                    val.toDoubleArray( aDouble);
+                    memcpy(prec->bptr,aDouble.rawData(),sizeof(epicsFloat64)*uaItem->arraySize);
+                    break;
+                default:
+                    if(uaItem->debug >= 2) errlogPrintf("%s setRecVal(): Can't convert array data type\n",uaItem->prec->name);
+                    return 1;
+                }
+            }
+            else {
+                if(uaItem->debug >= 2) errlogPrintf("%s setRecVal() Error record arraysize %d < OpcItem Size %d\n", uaItem->prec->name,val.arraySize(),uaItem->arraySize);
+                return 1;
+            }
+        }      // end array
+    }
+    catch(...) {
+        errlogPrintf("%s: Unexpected Exception in  setRecVal()",uaItem->prec->name);
+    }
     ret = read((dbCommon*)prec);
     if(! ret) {
         prec->nord = uaItem->arraySize;
