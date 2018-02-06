@@ -824,7 +824,7 @@ static long read(dbCommon * prec) {
         }
     }
     catch(...) {
-        errlogPrintf("%s: Exception in devOpcUa write() val=%s %s",prec->name,var.toString().toUtf8(),variantTypeStrings(uaItem->itemDataType));
+        errlogPrintf("%s: Exception in devOpcUa read() val=%s %s",prec->name,uaItem->varVal.toString().toUtf8(),variantTypeStrings(uaItem->itemDataType));
     }
     return ret;
 }

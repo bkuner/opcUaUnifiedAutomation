@@ -10,7 +10,7 @@ class DevUaClient : public UaClientSdk::UaSessionCallback
 {
     UA_DISABLE_COPY(DevUaClient);
 public:
-    DevUaClient(int autocon,int debug,double opcua_AutoConnectInterval);
+    DevUaClient(int autocon,int debug,double opcua_AutoConnectInterval=10);
     virtual ~DevUaClient();
 
     // UaSessionCallback implementation ----------------------------------------------------

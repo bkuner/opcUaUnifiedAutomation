@@ -30,7 +30,7 @@ inline const char *serverStatusStrings(UaClient::ServerStatus type)
     }
 }
 
-DevUaClient::DevUaClient(int autoCon=1,int debug=0,opcua_AutoConnectInterval=10.0)
+DevUaClient::DevUaClient(int autoCon=1,int debug=0,double opcua_AutoConnectInterval)
     : debug(debug)
     , serverConnectionStatus(UaClient::Disconnected)
     , initialSubscriptionOver(false)
