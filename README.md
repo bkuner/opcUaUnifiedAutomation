@@ -16,6 +16,10 @@ EPICS OPC UA device support using the Unified Automation C++ based
   Use the CONFIG_SITE.local file (see below) where the binary is created
   to set this option.
 
+* The Boost library and header files.
+  The name of the package you have to install depends on the Linux distro:
+  boost-devel on RedHat/CentOS/Fedora, libboost-all-dev on Debian/Ubuntu.
+
 * If you want support for XML definitions (e.g. for using the SDK examples
   and tools), you need libxml2 an your system - both when compiling the SDK
   and when generating any binaries (IOCs).
@@ -291,7 +295,6 @@ R0-8-2: Initial version
     server. Tested with Softing Server: 150 items ok, 880 not. No error Message! 
     It works relyably but very slow with mode BOTH. In this mode each object does 
     its own connection - very slow.
-
 
 R0-9: Works stable
 
