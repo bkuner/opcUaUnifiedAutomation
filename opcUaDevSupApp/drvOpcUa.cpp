@@ -124,143 +124,24 @@ extern "C" {
 }
 
 
-/* Maximize debug level from driver-debug (active >=1) and record-debug (active >= 2)
- * use in setRecVal to minimize call parameters
- */
-inline int maxDebug(int dbg,int recDbg) {
-    if(dbg) ++dbg;
-    if(recDbg>dbg) return recDbg;
-    else return dbg;
-}
-epicsRegisterFunction(maxDebug);
-
-/* write variant value from opcua read or callback to - whatever is determined in uaItem*/
-long setRecVal(const UaVariant &val, OPCUA_ItemINFO* uaItem,int debug)
-{
-    if(val.isArray()){
-        UaByteArray   aByte;
-        UaInt16Array  aInt16;
-        UaUInt16Array aUInt16;
-        UaInt32Array  aInt32;
-        UaUInt32Array aUInt32;
-        UaFloatArray  aFloat;
-        UaDoubleArray aDouble;
-
-        if(val.arraySize() <= uaItem->arraySize) {
-            switch(uaItem->recDataType) {
-            case epicsInt8T:
-            case epicsUInt8T:
-                val.toByteArray( aByte);
-                memcpy(uaItem->pRecVal,aByte.data(),sizeof(epicsInt8)*uaItem->arraySize);
-                break;
-            case epicsInt16T:
-                val.toInt16Array( aInt16);
-                memcpy(uaItem->pRecVal,aInt16.rawData(),sizeof(epicsInt16)*uaItem->arraySize);
-                break;
-            case epicsEnum16T:
-            case epicsUInt16T:
-                val.toUInt16Array( aUInt16);
-                memcpy(uaItem->pRecVal,aUInt16.rawData(),sizeof(epicsUInt16)*uaItem->arraySize);
-                break;
-            case epicsInt32T:
-                val.toInt32Array( aInt32);
-                memcpy(uaItem->pRecVal,aInt32.rawData(),sizeof(epicsInt32)*uaItem->arraySize);
-                break;
-            case epicsUInt32T:
-                val.toUInt32Array( aUInt32);
-                memcpy(uaItem->pRecVal,aUInt32.rawData(),sizeof(epicsUInt32)*uaItem->arraySize);
-                break;
-            case epicsFloat32T:
-                val.toFloatArray( aFloat);
-                memcpy(uaItem->pRecVal,aFloat.rawData(),sizeof(epicsFloat32)*uaItem->arraySize);
-                break;
-            case epicsFloat64T:
-                val.toDoubleArray( aDouble);
-                memcpy(uaItem->pRecVal,aDouble.rawData(),sizeof(epicsFloat64)*uaItem->arraySize);
-                break;
-            default:
-                if(debug >= 2) errlogPrintf("%s setRecVal(): Can't convert array data type\n",uaItem->prec->name);
-                return 1;
-            }
-        }
-        else {
-            if(debug >= 2) errlogPrintf("%s setRecVal() Error record arraysize %d < OpcItem Size %d\n", uaItem->prec->name,val.arraySize(),uaItem->arraySize);
-            return 1;
-        }
-    }      // end array
-    else { // is no array
-        void *toRec; // destination of the data, VAL, RVAL field directly: OUT records ** OR **
-                     // internal varVal to be set when processed: IN records.
-        epicsType dataType;
-
-        if(uaItem->inpDataType) {   // is OUT Record. TODO: what about records data conversion?
-            toRec = uaItem->pInpVal;
-            dataType = uaItem->inpDataType;
-        }
-        else {
-            toRec = &(uaItem->varVal); // is IN Record
-            dataType = uaItem->recDataType;
-        }
-
-        switch(dataType){
-        case epicsInt8T:
-        case epicsUInt8T:
-            val.toByte(*((epicsUInt8*)toRec));
-            if(debug >= 3)
-                    errlogPrintf("\tepicsInt32 recVal: %d '%c'\n",*((epicsUInt8*)toRec),*((epicsUInt8*)toRec));
-            break;
-        case epicsInt16T:
-            val.toInt16(*((epicsInt16*)toRec));
-            if(debug >= 3)
-                    errlogPrintf("\tepicsInt32 recVal: %d\n",*((epicsInt16*)toRec));
-            break;
-        case epicsEnum16T:
-        case epicsUInt16T:
-            val.toUInt16( *((epicsUInt16*)toRec));
-            if(debug >= 3)
-                    errlogPrintf("\tepicsInt32 recVal: %u\n",*((epicsUInt16*)toRec));
-            break;
-         case epicsInt32T:
-            val.toInt32( *((epicsInt32*)toRec));
-            if(debug >= 3)
-                    errlogPrintf("\tepicsInt32 recVal: %d\n",*((epicsInt32*)toRec));
-            break;
-        case epicsUInt32T:
-            val.toUInt32( *((epicsUInt32*)toRec));
-            if(debug >= 3)
-                    errlogPrintf("\tepicsUInt32 recVal: %u\n",*((epicsUInt32*)toRec));
-            break;
-        case epicsFloat32T:
-            val.toFloat( *((epicsFloat32*)toRec));
-            if(debug >= 3)
-                    errlogPrintf("\tepicsFloat32 recVal: %f\n",*((epicsFloat32*)toRec));
-            break;
-        case epicsFloat64T:
-            val.toDouble( *((epicsFloat64*)toRec));
-            if(debug >= 3)
-                    errlogPrintf("\tepicsFloat64 recVal: %lf\n",*((epicsFloat64*)toRec));
-            break;
-        case epicsOldStringT:
-            strncpy((char*)toRec,val.toString().toUtf8(),ANY_VAL_STRING_SIZE);    // string length: see epicsTypes.h
-            if(debug >= 3)
-                    errlogPrintf("\tepicsOldStringT opcVal: '%s'\n",(char*)toRec);
-            break;
-        default:
-            if(debug>= 2)
-                errlogPrintf("%s setRecVal() Error unsupported recDataType '%s'\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
-            return 1;
-        }
-    }
-    return 0;
+// Maximize debug level driver-dbg (active >=1) and uaItem.debug set by record.TPRO
+int OPCUA_ItemINFO::maxDebug(int dbg) {
+    return (debug>dbg)?debug:dbg;
 }
 
 // return 0:ok, 1:data loss may occur, 2:not supported OPCUA-Type
 // supposed EPICS-types: double, int32, uint32. As long as VAL,RVAL fields have no other types!
-int checkDataLoss(int opctype, epicsType epicstype, int isWrite)
+int OPCUA_ItemINFO::checkDataLoss()
 {
-
-    if(isWrite) { // data loss warning for OUT-records
-        switch(opctype){
+    epicsType epicstype;
+    if(inpDataType) {   // is OUT Record. TODO: what about records data conversion?
+        epicstype = inpDataType;
+    }
+    else {
+        epicstype = recDataType;
+    }
+    if(recDataType) { // data loss warning for OUT-records
+        switch(itemDataType){
         case OpcUaType_Boolean: // allow integer types to avoid warning for all booleans!
             switch(epicstype){
             case epicsFloat64T: return 1;
@@ -275,14 +156,12 @@ int checkDataLoss(int opctype, epicsType epicstype, int isWrite)
 
         case OpcUaType_Int32:
             switch(epicstype){//REC_Datatype(EPICS_Datatype)
-            case epicsUInt32T:
             case epicsFloat64T: return 1;
             default:;
             }
             break;
         case OpcUaType_UInt32:
             switch(epicstype){//REC_Datatype(EPICS_Datatype)
-            case epicsInt32T:
             case epicsFloat64T: return 1;  break;
             default:;
             }
@@ -306,14 +185,14 @@ int checkDataLoss(int opctype, epicsType epicstype, int isWrite)
     else { // data loss warning for IN-records
         switch(epicstype){//REC_Datatype(EPICS_Datatype)
         case epicsInt32T:
-            switch(opctype){
+            switch(itemDataType){
             case OpcUaType_Boolean: // allow integer types to avoid warning for all booleans!
             case OpcUaType_SByte:
             case OpcUaType_Byte:
             case OpcUaType_Int16:
             case OpcUaType_UInt16:
-            case OpcUaType_Int32: return 0;
-            case OpcUaType_UInt32:
+            case OpcUaType_Int32:
+            case OpcUaType_UInt32: return 0;
             case OpcUaType_Float:
             case OpcUaType_Double:
             case OpcUaType_String: return 1;
@@ -321,7 +200,7 @@ int checkDataLoss(int opctype, epicsType epicstype, int isWrite)
                 return 2;
             }
         case epicsUInt32T:
-                switch(opctype){
+                switch(itemDataType){
                 case OpcUaType_Boolean: // allow integer types to avoid warning for all booleans!
                 case OpcUaType_SByte:
                 case OpcUaType_Byte:
@@ -336,7 +215,7 @@ int checkDataLoss(int opctype, epicsType epicstype, int isWrite)
                     return 2;
                 }
         case epicsFloat64T: return 0;
-                switch(opctype){
+                switch(itemDataType){
                 case OpcUaType_Boolean: // allow integer types to avoid warning for all booleans!
                 case OpcUaType_SByte:
                 case OpcUaType_Byte:
@@ -351,7 +230,7 @@ int checkDataLoss(int opctype, epicsType epicstype, int isWrite)
                     return 2;
                 }
         case epicsOldStringT:
-            if(opctype != OpcUaType_String)
+            if(itemDataType != OpcUaType_String)
                 return 1;
             break;
         default: return 2;
@@ -398,120 +277,6 @@ void printVal(UaVariant &val,OpcUa_UInt32 IdxUaItemInfo)
     }
 }
 
-/***************** C Wrapper Functions ********************/
-
-/* Client: Read / setup monitors. First setup items by setOPCUA_Item() function */
-long OpcReadValues(int verbose,int monitored)
-    {
-    UaStatus status;
-    int debugStat = pMyClient->getDebug();
-
-    ServiceSettings   serviceSettings;
-    UaDataValues      values;
-    UaDiagnosticInfos diagnosticInfos;
-
-    if(verbose){
-        errlogPrintf("OpcReadValues\n");
-        pMyClient->setDebug(verbose);
-    }
-    if(pMyClient->getNodes() ) {
-        pMyClient->setDebug(debugStat);
-        return 1;
-    }
-    status = pMyClient->readFunc(values,serviceSettings,diagnosticInfos,OpcUa_Attributes_Value );
-    if (status.isGood()) {
-        if(verbose) errlogPrintf("READ VALUES success: %i\n",values.length());
-        for(OpcUa_UInt32 j=0;j<values.length();j++) {
-            OPCUA_ItemINFO* uaItem = pMyClient->vUaItemInfo[j];
-
-            if (OpcUa_IsGood(values[j].StatusCode)) {
-                UaVariant val = values[j].Value;
-                if( val.isArray()) {
-                    printVal(val,j);
-                    if(monitored) {
-                        errlogPrintf("Monitored Arrays not supported yet");
-                        return 1;
-                    }
-                }
-                else {
-                    if(monitored) 
-                        uaItem->debug=3;
-                    uaItem->itemDataType = (int) values[j].Value.Datatype;
-                    switch((int)uaItem->itemDataType){
-                    case OpcUaType_Boolean: uaItem->recDataType = epicsInt8T;      break;
-                    case OpcUaType_SByte:   uaItem->recDataType = epicsInt8T;      break;
-                    case OpcUaType_Byte:    uaItem->recDataType = epicsUInt8T;     break;
-                    case OpcUaType_Int16:   uaItem->recDataType = epicsInt16T;     break;
-                    case OpcUaType_UInt16:  uaItem->recDataType = epicsUInt16T;    break;
-                    case OpcUaType_Int32:   uaItem->recDataType = epicsInt32T;     break;
-                    case OpcUaType_UInt32:  uaItem->recDataType = epicsUInt32T;    break;
-                    case OpcUaType_Float:   uaItem->recDataType = epicsFloat32T;   break;
-                    case OpcUaType_Double:  uaItem->recDataType = epicsFloat64T;   break;
-                    case OpcUaType_String:  uaItem->recDataType = epicsOldStringT; break;
-                    default:
-                        errlogPrintf("OpcReadValues(): '%s' unsupported opc data type: '%s'", uaItem->prec->name, variantTypeStrings(uaItem->itemDataType));
-                    }
-                    setRecVal(val,uaItem,4);
-                }
-            }
-            else {
-                errlogPrintf("Read item[%i] failed with status %s\n",j,UaStatus(values[j].StatusCode).toString().toUtf8());
-            }
-        }
-    }
-    else {
-        // Service call failed
-        errlogPrintf("READ VALUES failed with status %s\n", status.toString().toUtf8());
-        return 1;
-    }
-    if(monitored) {
-        pMyClient->createMonitoredItems();
-    }
-    pMyClient->setDebug(debugStat);
-    return 0;
-}
-/* Client: write one value. First setup items by setOPCUA_Item() function */
-long OpcWriteValue(int opcUaItemIndex,double val,int verbose)
-{
-    int debugStat = pMyClient->getDebug();
-    UaStatus            status;
-    ServiceSettings     serviceSettings;    // Use default settings
-    UaVariant         tempValue;
-    UaWriteValues nodesToWrite;       // Array of nodes to write
-    UaStatusCodeArray   results;            // Returns an array of status codes
-    UaDiagnosticInfos   diagnosticInfos;    // Returns an array of diagnostic info
-    OPCUA_ItemINFO* uaItem;
-    uaItem = (pMyClient->vUaItemInfo).at(opcUaItemIndex);
-
-    if(verbose){
-        errlogPrintf("OpcWriteValue(%d,%f)\nTRANSLATEBROWSEPATH\n",opcUaItemIndex,val);
-        pMyClient->setDebug(verbose);
-    }
-
-    nodesToWrite.create(1);
-//from OPCUA_ItemINFO:    UaNodeId temp1Node(uaItem->ItemPath,uaItem->NdIdx);
-    UaNodeId tempNode(pMyClient->vUaNodeId[uaItem->itemIdx]);
-    tempNode.copyTo(&nodesToWrite[0].NodeId);
-    nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
-    tempValue.setDouble(val);
-    tempValue.copyTo(&nodesToWrite[0].Value.Value);
-
-    // Writes variable value synchronous to OPC server
-    status = pMyClient->writeFunc(serviceSettings,nodesToWrite,results,diagnosticInfos);
-    if ( status.isBad() )
-    {
-        errlogPrintf("** Error: UaSession::write failed [ret=%s] **\n", status.toString().toUtf8());
-        pMyClient->setDebug(debugStat);
-        return 1;
-    }
-    pMyClient->setDebug(debugStat);
-    return 0;
-}
-// iocShell: record write func
-extern "C" {
-epicsRegisterFunction(OpcUaWriteItems);
-}
-*/
 long OPCUA_ItemINFO::write(UaVariant &tempValue)
 {
     UaStatus            status=0;
@@ -585,16 +350,18 @@ long OpcUaSetupMonitors(void)
                 uaItem->itemDataType = (int) values[i].Value.Datatype;
                 uaItem->isArray = 0;
                 epicsMutexUnlock(uaItem->flagLock);
-                if(pMyClient->getDebug() > 3) errlogPrintf("%4d %15s: %p flagSuppressWrite: %d\n",uaItem->itemIdx,uaItem->prec->name,uaItem,uaItem->flagSuppressWrite);
 
-                if(checkDataLoss(uaItem->itemDataType,uaItem->recDataType,(int) uaItem->inpDataType)) {
-                    errlogPrintf("%s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
-                                 variantTypeStrings(uaItem->itemDataType));
+                if(pMyClient->getDebug() > 0) {
+                    if(uaItem->checkDataLoss()) {
+                        errlogPrintf("%20s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
+                                variantTypeStrings(uaItem->itemDataType));
+                    }
+                    if( (uaItem->userAccLvl & 0x2) == 0 && ((int) uaItem->inpDataType))    // no write access to out record
+                        errlogPrintf("%20s: no write Access!\n",uaItem->prec->name);
+                    if( !(uaItem->userAccLvl & 0x1) )                                  // no read access
+                        errlogPrintf("%20s: no read Access!\n",uaItem->prec->name);
+                    if(pMyClient->getDebug() > 3) errlogPrintf("%4d %15s %p flagSuppressWrite: %d\n",uaItem->itemIdx,uaItem->prec->name,uaItem,uaItem->flagSuppressWrite);
                 }
-                if( (uaItem->userAccLvl & 0x2) == 0 && ((int) uaItem->inpDataType))    // no write access to out record
-                    errlogPrintf("%s: no write Access!\n",uaItem->prec->name);
-                if( !(uaItem->userAccLvl & 0x1) )                                  // no read access
-                    errlogPrintf("%s: no read Access!\n",uaItem->prec->name);
             }
         }
     }
