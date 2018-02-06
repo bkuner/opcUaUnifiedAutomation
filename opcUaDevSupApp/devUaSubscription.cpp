@@ -77,11 +77,9 @@ void DevUaSubscription::dataChange(
                 throw dataChangeError();
             }
             uaItem->stat = 0;
-            UaVariant val = dataNotifications[i].Value.Value;
-            if(setRecVal(val,uaItem,maxDebug(debug,uaItem->debug))) {
-                if(debug) errlogPrintf("%s %s dataChange FAILED: setRecVal()\n",timeBuf,uaItem->prec->name);
-                throw dataChangeError();
-            }
+
+            uaItem->varVal = dataNotifications[i].Value.Value;
+
             if(uaItem->inpDataType) { // is OUT Record
                 if(uaItem->debug >= 2) errlogPrintf("dataChange %s\tOUT rec flagSuppressWrite:%d\n", uaItem->prec->name,uaItem->flagSuppressWrite);
                 if(uaItem->flagSuppressWrite==0) {     // Means: dataChange by external value change. Set Record! Invoke processing by callback but suppress another write operation

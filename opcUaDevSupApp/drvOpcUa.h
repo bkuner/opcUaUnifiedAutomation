@@ -36,15 +36,6 @@ class OPCUA_ItemINFO;
 #include "devUaClient.h"
 #include "devUaSubscription.h"
 
-#define ANY_VAL_STRING_SIZE 80
-typedef union {                     /* A subset of the built in types we use */
-        epicsInt32   Int32;
-        epicsUInt32  UInt32;
-        epicsFloat64 Double;
-//        char        *cString;     /* need a buffer to receive strings, see sampleSubscription.cpp! */
-        char         cString[ANY_VAL_STRING_SIZE];   /* find max defined stringsize of base: */
-} epicsAnyVal;                      // perl -ne 'print "$2 $1\n" if($_=~/char\s+([\w\d_]+)\[(\d+)\]/);' base-3.14.12.5/include/*|sort -u
-
 #define ITEMPATHLEN 128
 class OPCUA_ItemINFO {
 public:
@@ -55,19 +46,19 @@ public:
     int itemIdx;            // Index of this item in UaNodeId vector
 
     epicsUInt32 userAccLvl; // UserAcessLevel: write=2, read=1, rw=3
-    epicsAnyVal varVal;     // buffer to hold the value got from Opc for all scalar values, including string
+    UaVariant varVal;       // buffer to hold the value got from Opc
 
-    void *pRecVal;          // point to records val/rval/oval field
     epicsType recDataType;  // Data type of the records VAL/RVAL field
 
-    void *pInpVal;          // Input field to set OUT-records by the opcUa server
-    epicsType inpDataType;  // OUT records: the type of the records input = VAL field - may differ from RVAL type!. INP records = NULL
-
+    void *pInpVal;          // Input field to set OUT-records by the opcUa server.
+    epicsType inpDataType;  // OUT records: the type of the records input = VAL field - may differ from RVAL type!.
+                            // Allways set to 0 for INP records! 0=epicsInt8T is not in use for a record.
     epicsMutexId flagLock;  // mutex for lock flag access
 
-    int isArray;
-    int arraySize;
-                            // OPC UA properties of the monitored item
+    int isArray;            // array record
+    int arraySize;          // record array size
+
+    // OPC UA properties of the monitored item
     double samplingInterval;
     epicsUInt32 queueSize;
     unsigned char discardOldest;
@@ -80,6 +71,9 @@ public:
     CALLBACK callback;      // out-records callback request.
 
     dbCommon *prec;
+    int  maxDebug(int recDbg);
+    int checkDataLoss();
+    long write(UaVariant &tempValue);
 };
 extern DevUaClient* pMyClient;
 typedef enum {BOTH=0,NODEID,BROWSEPATH,BROWSEPATH_CONCAT,GETNODEMODEMAX} GetNodeMode;
@@ -89,14 +83,11 @@ extern long opcUa_close(int verbose);
 extern long OpcUaSetupMonitors(void);
 extern void addOPCUA_Item(OPCUA_ItemINFO *h);
 // iocShell:
-extern long OpcUaWriteItems(OPCUA_ItemINFO* uaItem);
+//extern long OpcUaWriteItems(OPCUA_ItemINFO* uaItem);
 
 // client:
 extern long OpcReadValues(int verbose,int monitored);
 extern long OpcWriteValue(int opcUaItemIndex,double val,int verbose);
-extern int  maxDebug(int dbg,int recDbg);
-
-extern long setRecVal(const UaVariant &val, OPCUA_ItemINFO* uaItem,int debug);
 extern long opcUa_init(UaString &g_serverUrl, UaString &g_applicationCertificate, UaString &g_applicationPrivateKey, UaString &nodeName, int autoConn, int debug);
 extern "C" {
 extern long opcUa_io_report (int); /* Write IO report output to stdout. */

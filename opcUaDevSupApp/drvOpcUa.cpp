@@ -507,127 +507,30 @@ long OpcWriteValue(int opcUaItemIndex,double val,int verbose)
     pMyClient->setDebug(debugStat);
     return 0;
 }
-/* iocShell: record write func  */
+// iocShell: record write func
 extern "C" {
 epicsRegisterFunction(OpcUaWriteItems);
 }
-long OpcUaWriteItems(OPCUA_ItemINFO* uaItem)
+*/
+long OPCUA_ItemINFO::write(UaVariant &tempValue)
 {
     UaStatus            status=0;
     ServiceSettings     serviceSettings;    // Use default settings
-    UaVariant           tempValue;
     UaWriteValues       nodesToWrite;       // Array of nodes to write
     UaStatusCodeArray   results;            // Returns an array of status codes
     UaDiagnosticInfos   diagnosticInfos;    // Returns an array of diagnostic info
 
     nodesToWrite.create(1);
-//from OPCUA_ItemINFO:    UaNodeId temp1Node(uaItem->ItemPath,uaItem->NdIdx);
-    UaNodeId tempNode(pMyClient->vUaNodeId[uaItem->itemIdx]);
+//from OPCUA_ItemINFO:    UaNodeId temp1Node(ItemPath,NdIdx);
+    UaNodeId tempNode(pMyClient->vUaNodeId[itemIdx]);
     tempNode.copyTo(&nodesToWrite[0].NodeId);
     nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
-
-    switch((int)uaItem->itemDataType){
-    case OpcUaType_Boolean:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:
-        case epicsUInt32T:  if( 0 != *((epicsInt32*)(uaItem)->pRecVal) )
-                                tempValue.setBool(true);
-                            else
-                                tempValue.setBool(false);
-                            break;
-        case epicsFloat64T:  if( *((epicsFloat64*)(uaItem)->pRecVal) == 0.0 ) /* is this reasonable?? or better don't support double */
-                                tempValue.setBool(false);
-                            else
-                                tempValue.setBool(true);
-                            break;
-
-        default: return 1;
-        }
-        break;
-    case OpcUaType_SByte:
-
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setByte(*((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setByte(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setByte(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_Byte:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setByte(*((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setByte(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setByte(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_Int16:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setInt16(*((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setInt16(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setInt16(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_UInt16:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setUInt16( *((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setUInt16(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setUInt16(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_Int32:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setInt32( *((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setInt32(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setInt32(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_UInt32:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setUInt32( *((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setUInt32(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setUInt32(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_Float:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setFloat( *((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setFloat(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setFloat(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_Double:
-        switch(uaItem->recDataType){//REC_Datatype(EPICS_Datatype)
-        case epicsInt32T:   tempValue.setDouble( *((epicsInt32*)(uaItem)->pRecVal));break;
-        case epicsUInt32T:  tempValue.setDouble(*((epicsUInt32*)(uaItem)->pRecVal));break;
-        case epicsFloat64T: tempValue.setDouble(*((epicsFloat64*)(uaItem)->pRecVal));break;
-        default: status = 1;
-        }
-        break;
-    case OpcUaType_String:
-        if(uaItem->recDataType == epicsOldStringT) { /* stringin/outRecord definition of 'char val[40]' */
-            tempValue.setString(UaString((char*)uaItem->pRecVal));break;
-        }
-        break;
-    default:
-        if(pMyClient->getDebug()) errlogPrintf("%20s\tOpcUaWriteItems: unsupported opc data type: '%s'", uaItem->prec->name, variantTypeStrings(uaItem->itemDataType));
-    }
-    if((status==1) && pMyClient->getDebug()) {
-        errlogPrintf("%s\tOpcUaWriteItems: unsupported record data type: '%s'\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
-        return 1;
-    }
-
     tempValue.copyTo(&nodesToWrite[0].Value.Value);
-
+printf("HUHU3\n");
     status = pMyClient->writeFunc(serviceSettings,nodesToWrite,results,diagnosticInfos);
     if ( status.isBad()  ) // write on a read only node is notBad. Can't be checked here!!
     {
-        if(pMyClient->getDebug()) errlogPrintf("%s\tOpcUaWriteItems: UaSession::write failed [ret=%s] **\n",uaItem->prec->name,status.toString().toUtf8());
+        if(pMyClient->getDebug()) errlogPrintf("%s\tOpcUaWriteItems: UaSession::write failed [ret=%s] **\n",prec->name,status.toString().toUtf8());
         return 1;
     }
     return 0;
