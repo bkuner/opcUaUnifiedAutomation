@@ -809,16 +809,21 @@ long read_wf(struct waveformRecord *prec)
     }
     catch(...) {
         errlogPrintf("%s: Unexpected Exception in  setRecVal()",uaItem->prec->name);
+        ret = 1;
     }
-    ret = read((dbCommon*)prec);
     if(! ret) {
-        prec->nord = uaItem->arraySize;
-        uaItem->arraySize = prec->nelm;
-        prec->udf=FALSE;
+        ret = read((dbCommon*)prec);
+        if(! ret) {
+            prec->nord = uaItem->arraySize;
+            uaItem->arraySize = prec->nelm;
+            prec->udf=FALSE;
+        }
     }
     epicsMutexUnlock(uaItem->flagLock);
     if(DEBUG_LEVEL >= 2) errlogPrintf("read_wf         %s %s NELM:%d\n",prec->name,getTime(buf),prec->nelm);
     if(DEBUG_LEVEL >= 3) errlogPrintf("\t  flagSuppressWrite %d -> %d, UDF%d -> %d \n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+    if(ret)
+        recGblSetSevr(prec,menuAlarmStatREAD,menuAlarmSevrINVALID);
     return ret;
 }
 
