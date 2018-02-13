@@ -59,14 +59,14 @@ void DevUaSubscription::dataChange(
     OpcUa_UInt32 i = 0;
     char timeBuf[30];
     getTime(timeBuf);
-    if(debug>2) errlogPrintf("dataChange %s\n",timeBuf);
+    if(debug>2) errlogPrintf("dataChange     %s\n",timeBuf);
     for ( i=0; i<dataNotifications.length(); i++ )
     {
         struct dataChangeError {};
         OPCUA_ItemINFO* uaItem = m_vectorUaItemInfo->at(dataNotifications[i].ClientHandle);
 
         if(uaItem->debug >= 2)
-            errlogPrintf("dataChange: %s %s\n",timeBuf,uaItem->prec->name);
+            errlogPrintf("dataChange  %s %s\n",timeBuf,uaItem->prec->name);
         epicsMutexLock(uaItem->flagLock);
         try {
             if (OpcUa_IsBad(dataNotifications[i].Value.StatusCode) )
@@ -105,16 +105,12 @@ void DevUaSubscription::dataChange(
             uaItem->prec->time.nsec         = dt.msec()*1000000L; // msec is 100ns steps
         }
         if(uaItem->debug >= 4) {
-            errlogPrintf("server timestamp: %s, TSE:%d\n",dt.toString().toUtf8(),uaItem->prec->tse);
+            errlogPrintf("\tepicsType: %2d,%s opcType%2d:%s\n\tserver timestamp:%s, TSE:%2d\n",
+                         uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
+                         uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
+                         dt.toString().toUtf8(),uaItem->prec->tse);
         }
         epicsMutexUnlock(uaItem->flagLock);
-
-
-        if(uaItem->debug >= 4)
-            errlogPrintf("\tepicsType: %2d,%s opcType%2d:%s flagSuppressWrite:%d\n",
-                    uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
-                    uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
-                    uaItem->flagSuppressWrite);
     } //end for
     return;
 }

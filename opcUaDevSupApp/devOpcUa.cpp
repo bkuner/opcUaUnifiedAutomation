@@ -373,8 +373,7 @@ long read_longin (struct longinRecord* prec)
             if(uaItem->debug) errlogPrintf("%s: Longin read()->varVal.toInt32() FAILED\n",uaItem->prec->name);
             ret = 1;
         }
-        if(DEBUG_LEVEL >= 2) errlogPrintf("read_longin     %s %s %d\n",prec->name,getTime(buf),prec->val);
-        if(DEBUG_LEVEL >= 3) errlogPrintf("\tflagSuppressWrite %d->%d, UDF %d->%d \n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+        if(DEBUG_LEVEL >= 2) errlogPrintf("longin      %s %s %d\n",getTime(buf),prec->name,prec->val);
     }
     epicsMutexUnlock(uaItem->flagLock);
     return ret;
@@ -396,7 +395,7 @@ long write_longout (struct longoutRecord* prec)
     UaVariant var;
 
     ret = toOpcuaTypeVariant(uaItem,var,prec->val);
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_longout   %s %s RVAL:%d\n",prec->name,getTime(buf),prec->val);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("longout     %s %s RVAL:%d\n",getTime(buf),prec->name,prec->val);
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
         return ret;
@@ -429,8 +428,7 @@ long read_mbbiDirect (struct mbbiDirectRecord* prec)
             ret = 1;
         }
         prec->rval = tmp & prec->mask;
-        if(DEBUG_LEVEL >= 2) errlogPrintf("read_mbbiDirect %s %s VAL:%d RVAL:%d\n",prec->name,getTime(buf),prec->val,prec->rval);
-        if(DEBUG_LEVEL >= 3) errlogPrintf("\tflagSuppressWrite %d->%d, UDF %d->%d \n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+        if(DEBUG_LEVEL >= 2) errlogPrintf("mbbiDirect  %s %s VAL:%d RVAL:%d\n",getTime(buf),prec->name,prec->val,prec->rval);
     }
     epicsMutexUnlock(uaItem->flagLock);
     return ret;
@@ -452,7 +450,7 @@ long write_mbboDirect (struct mbboDirectRecord* prec)
     UaVariant var;
 
     ret = toOpcuaTypeVariant(uaItem,var,(prec->rval & prec->mask));
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_mbboDirect %s %s RVAL:%d\n",prec->name,getTime(buf),prec->rval);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("mbboDirect  %s %s RVAL:%d\n",getTime(buf),prec->name,prec->rval);
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
         return ret;
@@ -484,8 +482,7 @@ long read_mbbi (struct mbbiRecord* prec)
             ret = 1;
         }
         prec->rval = tmp & prec->mask;
-        if(DEBUG_LEVEL >= 2) errlogPrintf("read_mbbi %s %s VAL:%d RVAL:%d\n",prec->name,getTime(buf),prec->val,prec->rval);
-        if(DEBUG_LEVEL >= 3) errlogPrintf("\tflagSuppressWrite %d->%d, UDF %d->%d \n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+        if(DEBUG_LEVEL >= 2) errlogPrintf("mbbi          %s %s VAL:%d RVAL:%d\n",getTime(buf),prec->name,prec->val,prec->rval);
     }
     epicsMutexUnlock(uaItem->flagLock);
     return ret;
@@ -508,7 +505,7 @@ long write_mbbo (struct mbboRecord* prec)
     UaVariant var;
 
     ret = toOpcuaTypeVariant(uaItem,var,(prec->rval & prec->mask));
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_mbbo      %s %s RVAL:%d\n",prec->name,getTime(buf),prec->rval);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("mbbo        %s %s RVAL:%d\n",getTime(buf),prec->name,prec->rval);
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
         return ret;
@@ -538,8 +535,7 @@ long read_bi (struct biRecord* prec)
             if(uaItem->debug) errlogPrintf("%s: read()->setRecVal() FAILED\n",uaItem->prec->name);
             ret = 1;
         }
-        if(DEBUG_LEVEL >= 2) errlogPrintf("read_bi         %s %s RVAL:%d\n",prec->name,getTime(buf),prec->rval);
-        if(DEBUG_LEVEL >= 3) errlogPrintf("\tflagSuppressWrite %d->%d, UDF %d->%d \n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+        if(DEBUG_LEVEL >= 2) errlogPrintf("bi          %s %s RVAL:%d\n",getTime(buf),prec->name,prec->rval);
     }
     epicsMutexUnlock(uaItem->flagLock);
     return ret;
@@ -563,7 +559,7 @@ long write_bo (struct boRecord* prec)
     UaVariant var;
 
     ret = toOpcuaTypeVariant(uaItem,var,(prec->rval & prec->mask));
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_bo        %s %s RVAL:%d\n",prec->name,getTime(buf),prec->rval);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("bo          %s %s RVAL:%d\n",getTime(buf),prec->name,prec->rval);
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
         return ret;
@@ -597,7 +593,7 @@ long write_ao (struct aoRecord* prec)
     } else {
         ret = toOpcuaTypeVariant(uaItem,var,prec->rval);
     }
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_ao %s %s VAL %f RVAL %d\n",prec->name,getTime(buf),prec->val,prec->rval);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("ao          %s %s VAL %f RVAL %d\n",getTime(buf),prec->name,prec->val,prec->rval);
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
         return ret;
@@ -645,14 +641,12 @@ long read_ai (struct aiRecord* prec)
             else {
                 prec->val = newVal;
             }
-            if(DEBUG_LEVEL>= 2) errlogPrintf("read_ai         %s %s\n\tbuf:%f VAL:%f\n", prec->name,getTime(buf),newVal,prec->val);
-            if(DEBUG_LEVEL >= 3) errlogPrintf("\tflagSuppressWrite %d->%d, UDF %d->%d  ret: 2 NO_CONVERSION\n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+            if(DEBUG_LEVEL>= 2) errlogPrintf("ai          %s %s\n\tbuf:%f VAL:%f\n", getTime(buf),prec->name,newVal,prec->val);
             ret = 2;
         }
         else {
             uaItem->varVal.toInt32(prec->rval);
-            if(DEBUG_LEVEL >= 2) errlogPrintf("read_ai         %s %s\n\tbuf:%s RVAL:%d\n", prec->name,getTime(buf),(uaItem->varVal).toString().toUtf8(),prec->rval);
-            if(DEBUG_LEVEL >= 3) errlogPrintf("\tflagSuppressWrite %d->%d, UDF %d->%d ret: 0 LINR=%d\n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf,prec->linr);
+            if(DEBUG_LEVEL >= 2) errlogPrintf("ai          %s %s\n\tbuf:%s RVAL:%d\n", getTime(buf),prec->name,(uaItem->varVal).toString().toUtf8(),prec->rval);
         }
     }
     epicsMutexUnlock(uaItem->flagLock);
@@ -680,7 +674,7 @@ long read_stringin (struct stringinRecord* prec)
         prec->udf = FALSE;	// stringinRecord process doesn't set udf field in case of no convert!
     }
     epicsMutexUnlock(uaItem->flagLock);
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_stringin  %s %s VAL:%s UDF %d\n",prec->name,getTime(buf),prec->val,prec->udf);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("stringin    %s %s VAL:%s UDF %d\n",getTime(buf),prec->name,prec->val,prec->udf);
     return ret;
 }
 
@@ -707,7 +701,7 @@ long write_stringout (struct stringoutRecord* prec)
     else
         ret = 1;
 
-    if(DEBUG_LEVEL >= 2) errlogPrintf("write_stringout %s %s VAL:%s\n",prec->name,getTime(buf),prec->val);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("stringout   %s %s VAL:%s\n",getTime(buf),prec->name,prec->val);
     if(ret)
         return ret;
     else
@@ -820,8 +814,7 @@ long read_wf(struct waveformRecord *prec)
         }
     }
     epicsMutexUnlock(uaItem->flagLock);
-    if(DEBUG_LEVEL >= 2) errlogPrintf("read_wf         %s %s NELM:%d\n",prec->name,getTime(buf),prec->nelm);
-    if(DEBUG_LEVEL >= 3) errlogPrintf("\t  flagSuppressWrite %d -> %d, UDF%d -> %d \n",flagSuppressWrite,uaItem->flagSuppressWrite,udf,prec->udf);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("read_wf     %s %s NELM:%d\n",prec->name,getTime(buf),prec->nelm);
     if(ret)
         recGblSetSevr(prec,menuAlarmStatREAD,menuAlarmSevrINVALID);
     return ret;
@@ -841,7 +834,7 @@ static void outRecordCallback(CALLBACK *pcallback) {
     prec = (dbCommon*) pVoid;
     uaItem = (OPCUA_ItemINFO*)prec->dpvt;
     if(DEBUG_LEVEL >= 2)
-        errlogPrintf("outRecord Callb: %s %s varVal:%s\n", getTime(buf),prec->name,uaItem->varVal.toString().toUtf8());
+        errlogPrintf("out Callb:  %s %s varVal:%s\n", getTime(buf),prec->name,uaItem->varVal.toString().toUtf8());
 
     dbScanLock(prec);
     uaItem->flagSuppressWrite = 1;
@@ -892,7 +885,7 @@ static long write(dbCommon *prec,UaVariant &var) {
     try {
         uaItem->debug = prec->tpro-1;   // to avoid debug for habitual TPRO=1
 
-        if(DEBUG_LEVEL >= 2) errlogPrintf("write()          flagSuppressWrite=%i\n",uaItem->flagSuppressWrite);
+        if(DEBUG_LEVEL >= 2) errlogPrintf("write()\t\tflagSuppressWrite=%i\n",uaItem->flagSuppressWrite);
         if( ! uaItem->flagSuppressWrite ) {
             epicsMutexLock(uaItem->flagLock);
             ret = uaItem->write(var);   // write on a read only node results NOT to isBad(). Can't be checked here!!
