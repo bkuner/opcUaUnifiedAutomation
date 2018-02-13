@@ -364,8 +364,6 @@ long read_longin (struct longinRecord* prec)
 {
     char buf[256];
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
-    int flagSuppressWrite = uaItem->flagSuppressWrite;
-    int udf   = prec->udf;
     int ret;
     
     epicsMutexLock(uaItem->flagLock);
@@ -421,8 +419,6 @@ long read_mbbiDirect (struct mbbiDirectRecord* prec)
     char buf[256];
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
     long ret;
-    int flagSuppressWrite = uaItem->flagSuppressWrite;
-    int udf   = prec->udf;
 
     ret = read((dbCommon*)prec);
     epicsMutexLock(uaItem->flagLock);
@@ -478,8 +474,6 @@ long read_mbbi (struct mbbiRecord* prec)
     char buf[256];
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
     long ret;
-    int flagSuppressWrite = uaItem->flagSuppressWrite;
-    int udf   = prec->udf;
 
     epicsMutexLock(uaItem->flagLock);
     ret = read((dbCommon*)prec);
@@ -535,8 +529,6 @@ long read_bi (struct biRecord* prec)
 {
     char buf[256];
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
-    int flagSuppressWrite = uaItem->flagSuppressWrite;
-    int udf   = prec->udf;
     long ret = 0;
 	
     epicsMutexLock(uaItem->flagLock);
@@ -637,8 +629,6 @@ long read_ai (struct aiRecord* prec)
     double newVal;
     long ret;
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*) prec->dpvt;
-    int flagSuppressWrite = uaItem->flagSuppressWrite;
-    int udf   = prec->udf;
 
     epicsMutexLock(uaItem->flagLock);
     ret = read((dbCommon*)prec);
@@ -757,10 +747,8 @@ long init_waveformRecord(struct waveformRecord* prec)
 long read_wf(struct waveformRecord *prec)
 {
     char buf[256];
-    int udf   = prec->udf;
     int ret = 0;
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
-    int flagSuppressWrite = uaItem->flagSuppressWrite;
     uaItem->debug = prec->tpro;
     
     epicsMutexLock(uaItem->flagLock);
@@ -840,12 +828,21 @@ static void outRecordCallback(CALLBACK *pcallback) {
     char buf[256];
     void *pVoid;
     dbCommon *prec;
+    OPCUA_ItemINFO* uaItem;
+
     callbackGetUser(pVoid, pcallback);
-    if(pVoid) {
-        prec = (dbCommon*) pVoid;
-        if(DEBUG_LEVEL >= 2) errlogPrintf("outRecordCallback: %s %s\tdbProcess\n", prec->name,getTime(buf));
-        dbProcess(prec);
-    }
+    if(!pVoid)
+        return;
+    prec = (dbCommon*) pVoid;
+    uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    if(DEBUG_LEVEL >= 2)
+        errlogPrintf("outRecord Callb: %s %s varVal:%s\n", getTime(buf),prec->name,uaItem->varVal.toString().toUtf8());
+
+    dbScanLock(prec);
+    uaItem->flagSuppressWrite = 1;
+    dbProcess(prec);
+    uaItem->flagSuppressWrite = 0;
+    dbScanUnlock(prec);
 }
 
 static long get_ioint_info(int cmd, dbCommon *prec, IOSCANPVT * ppvt) {
@@ -858,28 +855,28 @@ static long get_ioint_info(int cmd, dbCommon *prec, IOSCANPVT * ppvt) {
     return 0;
 }
 
-/* Setup commons for all record types: debug level, flagSuppressWrite, alarms. Don't deal with the value! */
+/* Setup commons for all record types: debug level, alarms. Don't deal with the value! */
 static long read(dbCommon * prec) {
     long ret = 0;
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
-    try {    if(!uaItem) {
-            errlogPrintf("%s read error uaItem = 0\n", prec->name);
-            ret = 1;
-        }
+    try {   if(!uaItem) {
+                errlogPrintf("%s read error uaItem = 0\n", prec->name);
+                return 1;
+            }
 
-        if(prec->tpro > 1)
-            uaItem->debug = prec->tpro-1;   // to avoid debug for habitual TPRO=1
+            if(prec->tpro > 1)
+                uaItem->debug = prec->tpro-1;   // to avoid debug for habitual TPRO=1
 
-        ret = uaItem->stat;
-        if(ret) {
-            recGblSetSevr(prec,menuAlarmStatREAD,menuAlarmSevrINVALID);
-        }
-        else {
-            prec->udf=FALSE;
-        }
+            ret = uaItem->stat;
+            if(!ret)
+                prec->udf=FALSE;
     }
     catch(...) {
         errlogPrintf("%s: Exception in devOpcUa read() val=%s %s",prec->name,uaItem->varVal.toString().toUtf8(),variantTypeStrings(uaItem->itemDataType));
+        ret = 1;
+    }
+    if(ret) {
+        recGblSetSevr(prec,menuAlarmStatREAD,menuAlarmSevrINVALID);
     }
     return ret;
 }
@@ -890,32 +887,22 @@ static long write(dbCommon *prec,UaVariant &var) {
     try {
         uaItem->debug = prec->tpro-1;   // to avoid debug for habitual TPRO=1
 
-        if(DEBUG_LEVEL >= 3) errlogPrintf("%s enter write(), flagSuppressWrite=%i\n",prec->name,uaItem->flagSuppressWrite);
-        epicsMutexLock(uaItem->flagLock);
-        if(uaItem->flagSuppressWrite == 1) {
-            uaItem->flagSuppressWrite = 0;
+        if(DEBUG_LEVEL >= 2) errlogPrintf("write()          flagSuppressWrite=%i\n",uaItem->flagSuppressWrite);
+        if( ! uaItem->flagSuppressWrite ) {
+            epicsMutexLock(uaItem->flagLock);
+            ret = uaItem->write(var);   // write on a read only node results NOT to isBad(). Can't be checked here!!
             epicsMutexUnlock(uaItem->flagLock);
+            if(ret==0)
+                prec->udf=FALSE;
         }
-        else {
-            uaItem->flagSuppressWrite = 1;
-            epicsMutexUnlock(uaItem->flagLock);
-
-            if ( uaItem->write(var) ) // write on a read only node results NOT to isBad(). Can't be checked here!!
-            {
-                if(pMyClient->getDebug()) errlogPrintf("%s\twrite() failed\n",uaItem->prec->name);
-                ret = 1;
-            }
-        }
-        if(DEBUG_LEVEL >= 3) errlogPrintf("\twrite() Done set flagSuppressWrite=%i\n",uaItem->flagSuppressWrite);
-
-        if(ret==0) {
-            prec->udf=FALSE;
-        }
-        else
-            recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
     }
     catch(...) {
         errlogPrintf("%s: Exception in devOpcUa write() val=%s %s",prec->name,var.toString().toUtf8(),variantTypeStrings(uaItem->itemDataType));
+        ret=1;
+    }
+    if(ret) {
+        recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
+        if(pMyClient->getDebug()) errlogPrintf("%s\twrite() failed\n",uaItem->prec->name);
     }
     return ret;
 }

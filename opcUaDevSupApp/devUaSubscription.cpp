@@ -80,24 +80,15 @@ void DevUaSubscription::dataChange(
             uaItem->varVal = dataNotifications[i].Value.Value;
 
             if(uaItem->inpDataType) { // is OUT Record
-                if(uaItem->debug >= 2) errlogPrintf("dataChange %s\tOUT rec flagSuppressWrite:%d\n", uaItem->prec->name,uaItem->flagSuppressWrite);
-                if(uaItem->flagSuppressWrite==0) {     // Means: dataChange by external value change. Set Record! Invoke processing by callback but suppress another write operation
-                    uaItem->flagSuppressWrite = 1;
                     callbackRequest(&(uaItem->callback)); // out-records are SCAN="passive" so scanIoRequest doesn't work
-                }
-                else {  // Means dataChange after write operation of the record. Ignore this, no callback, suppress another processing of the record
-                    uaItem->flagSuppressWrite=0;
-                }
             }
             else { // is IN Record
                 if(uaItem->prec->scan == SCAN_IO_EVENT)
-                {
                     scanIoRequest( uaItem->ioscanpvt );    // Update the record immediatly, for scan>SCAN_IO_EVENT update by periodic scan.
-                }
-
             }
         }
         catch(dataChangeError) {
+            if(debug || (uaItem->debug>= 2)) errlogPrintf("%s %s\tdataChange exception '%s'\n",timeBuf,uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
             uaItem->stat = 1;
         }
         // I'm not shure about the posibility of another exception but of the damage it could do!
