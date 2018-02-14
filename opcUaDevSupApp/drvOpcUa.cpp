@@ -123,7 +123,6 @@ extern "C" {
     }
 }
 
-
 // Maximize debug level driver-dbg (active >=1) and uaItem.debug set by record.TPRO
 int OPCUA_ItemINFO::maxDebug(int dbg) {
     return (debug>dbg)?debug:dbg;
