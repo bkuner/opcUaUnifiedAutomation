@@ -123,6 +123,7 @@ extern "C" {
     }
 }
 
+
 // Maximize debug level driver-dbg (active >=1) and uaItem.debug set by record.TPRO
 int OPCUA_ItemINFO::maxDebug(int dbg) {
     return (debug>dbg)?debug:dbg;
@@ -358,7 +359,7 @@ long OpcUaSetupMonitors(void)
                         errlogPrintf("%20s: no write Access!\n",uaItem->prec->name);
                     if( !(uaItem->userAccLvl & 0x1) )                                  // no read access
                         errlogPrintf("%20s: no read Access!\n",uaItem->prec->name);
-                    if(pMyClient->getDebug() > 3) errlogPrintf("%4d %15s %p flagSuppressWrite: %d\n",uaItem->itemIdx,uaItem->prec->name,uaItem,uaItem->flagSuppressWrite);
+                    if(pMyClient->getDebug() > 3) errlogPrintf("%4d %15s %p\n",uaItem->itemIdx,uaItem->prec->name,uaItem);
                 }
             }
         }
