@@ -81,7 +81,7 @@ const  char *variantTypeStrings(int type);
 extern char *getTime(char *buf);
 extern long opcUa_close(int verbose);
 extern long OpcUaSetupMonitors(void);
-extern void addOPCUA_Item(OPCUA_ItemINFO *h);
+extern int  addOPCUA_Item(OPCUA_ItemINFO *h);
 // iocShell:
 //extern long OpcUaWriteItems(OPCUA_ItemINFO* uaItem);
 

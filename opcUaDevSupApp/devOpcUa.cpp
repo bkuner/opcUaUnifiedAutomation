@@ -290,7 +290,9 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
 
     if(strlen(plnk->value.instio.string) < ITEMPATHLEN) {
         strcpy(uaItem->ItemPath,plnk->value.instio.string);
-        addOPCUA_Item(uaItem);
+        if(addOPCUA_Item(uaItem)) {
+            recGblRecordError(S_dev_NoInit, prec, "drvOpcUa not initialized");
+        }
     }
     else {
         long status = S_db_badField;

@@ -395,9 +395,12 @@ long opcUa_close(int verbose)
 }
 
 /* iocShell/Client: Setup an opcUa Item for the driver*/
-void addOPCUA_Item(OPCUA_ItemINFO *h)
+int addOPCUA_Item(OPCUA_ItemINFO *h)
 {
+    if(pMyClient == NULL)
+        return 1;
     pMyClient->addOPCUA_Item(h);
+    return 0;
 }
 
 /* iocShell/Client: Setup server url and certificates, connect and subscribe */
