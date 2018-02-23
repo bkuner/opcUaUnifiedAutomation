@@ -315,6 +315,8 @@ long OpcUaSetupMonitors(void)
     ServiceSettings     serviceSettings;
     UaDiagnosticInfos   diagnosticInfos;
 
+    if(pMyClient == NULL)
+        return 1;
     if(pMyClient->getDebug()) errlogPrintf("OpcUaSetupMonitors Browsepath ok len = %d\n",(int)pMyClient->vUaNodeId.size());
 
     if(pMyClient->getNodes() )
@@ -382,6 +384,8 @@ long opcUa_close(int verbose)
     UaStatus status;
     if(verbose) errlogPrintf("opcUa_close()\n\tunsubscribe\n");
 
+    if(pMyClient == NULL)
+        return 1;
     status = pMyClient->unsubscribe();
     if(verbose) errlogPrintf("\tdisconnect\n");
     status = pMyClient->disconnect();
@@ -522,7 +526,8 @@ static const iocshArg *const opcuaStatArg[1] = {&opcuaStatArg0};
 iocshFuncDef opcuaStatFuncDef = {"opcuaStat", 1, opcuaStatArg};
 void opcuaStat (const iocshArgBuf *args )
 {
-    pMyClient->itemStat(args[0].ival);
+    if(pMyClient!= NULL)
+        pMyClient->itemStat(args[0].ival);
     return;
 }
 extern "C" {
