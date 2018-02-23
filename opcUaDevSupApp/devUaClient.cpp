@@ -127,7 +127,6 @@ void DevUaClient::setBadQuality()
     for(OpcUa_UInt32 bpItem=0;bpItem<vUaItemInfo.size();bpItem++) {
         OPCUA_ItemINFO *uaItem = vUaItemInfo[bpItem];
         uaItem->prec->time = now;
-        uaItem->flagSuppressWrite = 1;
         uaItem->stat = 1;
         if(uaItem->inpDataType) // is OUT Record
             callbackRequest(&(uaItem->callback));

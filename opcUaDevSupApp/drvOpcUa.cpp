@@ -286,17 +286,20 @@ long OPCUA_ItemINFO::write(UaVariant &tempValue)
     UaDiagnosticInfos   diagnosticInfos;    // Returns an array of diagnostic info
 
     nodesToWrite.create(1);
-//from OPCUA_ItemINFO:    UaNodeId temp1Node(ItemPath,NdIdx);
-    UaNodeId tempNode(pMyClient->vUaNodeId[itemIdx]);
-    tempNode.copyTo(&nodesToWrite[0].NodeId);
-    nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
-    tempValue.copyTo(&nodesToWrite[0].Value.Value);
-    status = pMyClient->writeFunc(serviceSettings,nodesToWrite,results,diagnosticInfos);
-    if ( status.isBad()  ) // write on a read only node is notBad. Can't be checked here!!
-    {
-        if(pMyClient->getDebug()) errlogPrintf("%s\tOpcUaWriteItems: UaSession::write failed [ret=%s] **\n",prec->name,status.toString().toUtf8());
-        return 1;
+    if(stat == 0) {                         // if connected
+        UaNodeId tempNode(pMyClient->vUaNodeId[itemIdx]);
+        tempNode.copyTo(&nodesToWrite[0].NodeId);
+        nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
+        tempValue.copyTo(&nodesToWrite[0].Value.Value);
+        status = pMyClient->writeFunc(serviceSettings,nodesToWrite,results,diagnosticInfos);
+        if ( status.isBad()  )              // write on a read only node is not bad! Can't be checked here!!
+        {
+            if(pMyClient->getDebug()) errlogPrintf("%s\tOpcUaWriteItems: UaSession::write failed [ret=%s] **\n",prec->name,status.toString().toUtf8());
+            return 1;
+        }
     }
+    else
+        return 1;
     return 0;
 }
 
@@ -330,18 +333,22 @@ long OpcUaSetupMonitors(void)
     for(OpcUa_UInt32 i=0; i<values.length(); i++) {
         OPCUA_ItemINFO* uaItem = pMyClient->vUaItemInfo[i];
         if (OpcUa_IsBad(values[i].StatusCode)) {
+            uaItem->stat = 1;
             errlogPrintf("%s: Read node '%s' failed with status %s\n",uaItem->prec->name, uaItem->ItemPath,
                          UaStatus(values[i].StatusCode).toString().toUtf8());
         }
         else {
-            if(OpcUa_IsBad(attribs[i].StatusCode))
+            if(OpcUa_IsBad(attribs[i].StatusCode)) {
+                uaItem->stat = 1;
                 errlogPrintf("%s: Read attribs' failed with status %s\n",uaItem->prec->name,
                              UaStatus(attribs[i].StatusCode).toString().toUtf8());
+            }
             else {
                 UaVariant var = attribs[i].Value;
                 var.toUInt32(uaItem->userAccLvl);
             }
             if(values[i].Value.ArrayType && !uaItem->isArray) {
+                uaItem->stat = 1;
                 errlogPrintf("%s: Don't Support Array Data\n",uaItem->prec->name);
             }
             else {
@@ -362,6 +369,7 @@ long OpcUaSetupMonitors(void)
                     if(pMyClient->getDebug() > 3) errlogPrintf("%4d %15s %p\n",uaItem->itemIdx,uaItem->prec->name,uaItem);
                 }
             }
+            uaItem->stat = 0;
         }
     }
     pMyClient->createMonitoredItems();

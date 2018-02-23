@@ -76,7 +76,6 @@ void DevUaSubscription::dataChange(
                 throw dataChangeError();
             }
             uaItem->stat = 0;
-
             uaItem->varVal = dataNotifications[i].Value.Value;
 
             if(uaItem->inpDataType) { // is OUT Record

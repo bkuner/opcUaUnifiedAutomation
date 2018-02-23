@@ -300,6 +300,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
 
     prec->dpvt = uaItem;
     uaItem->recDataType = recType;
+    uaItem->stat = 1;       // not conntcted
     uaItem->prec = prec;
     uaItem->debug = prec->tpro;
     uaItem->flagLock = epicsMutexMustCreate();

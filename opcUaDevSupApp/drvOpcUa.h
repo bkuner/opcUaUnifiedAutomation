@@ -64,7 +64,7 @@ public:
     unsigned char discardOldest;
 
     int debug;              // debug level of this item, defined in field REC:TPRO
-    int stat;               // Status of the opc connection
+    int stat;               // Status of the opc connection or opcua quality: 0=ok, 1=not ok
     int flagSuppressWrite;  // flag for OUT-records: prevent write back of incomming values
 
     IOSCANPVT ioscanpvt;    // in-records scan request.
