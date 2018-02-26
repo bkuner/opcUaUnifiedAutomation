@@ -487,7 +487,6 @@ long write_mbboDirect (struct mbboDirectRecord* prec)
         }
     }
     else {
-        errlogPrintf("mbboDirect  %s\tVAL:%X\tRVAL:%X\tMASK:%X\n",prec->name,prec->val,prec->rval,prec->mask);
         ret = toOpcuaTypeVariant(uaItem,var,(prec->rval & prec->mask));
         if( !ret)
             ret = write((dbCommon*)prec,var);
