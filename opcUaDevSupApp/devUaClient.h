@@ -3,7 +3,7 @@
 
 #include "drvOpcUa.h"
 #include "devUaSubscription.h"
-
+#include <string>
 class autoSessionConnect;
 
 class DevUaClient : public UaClientSdk::UaSessionCallback
