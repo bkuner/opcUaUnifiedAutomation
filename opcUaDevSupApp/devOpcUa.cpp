@@ -978,6 +978,7 @@ static void outRecordCallback(CALLBACK *pcallback) {
 
     dbScanLock(prec);
     uaItem->flagSuppressWrite = 1;
+    prec->udf=FALSE;
     dbProcess(prec);
     uaItem->flagSuppressWrite = 0;
     dbScanUnlock(prec);
@@ -1029,8 +1030,6 @@ static long write(dbCommon *prec,UaVariant &var) {
             epicsMutexLock(uaItem->flagLock);
             ret = uaItem->write(var);   // write on a read only node results NOT to isBad(). Can't be checked here!!
             epicsMutexUnlock(uaItem->flagLock);
-            if(ret==0)
-                prec->udf=FALSE;
         }
     }
     catch(...) {
