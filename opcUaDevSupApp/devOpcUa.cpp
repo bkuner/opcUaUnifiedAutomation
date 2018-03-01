@@ -251,7 +251,7 @@ static void scanInfoItems(const dbCommon *pcommon, OPCUA_ItemINFO *info)
 static void opcuaMonitorControl (initHookState state)
 {
     switch (state) {
-    case initHookAfterFinishDevSup:
+    case initHookAtIocRun:
         OpcUaSetupMonitors();
         break;
     default:
