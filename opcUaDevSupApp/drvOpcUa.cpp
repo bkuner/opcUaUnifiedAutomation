@@ -353,7 +353,6 @@ long OpcUaSetupMonitors(void)
             uaItem->itemDataType = (int) values[i].Value.Datatype;
             epicsMutexUnlock(uaItem->flagLock);
 
-            uaItem->stat = (((int)uaItem->varVal.arrayType() == uaItem->isArray) & (uaItem->stat == 0)) ? 0 : 1; // need to check array/scalar each time??
             uaItem->stat = ((uaItem->stat == 0) & ((int)values[i].Value.ArrayType == uaItem->isArray)) ? 0 : 1;
             if(pMyClient->getDebug() > 0) {
                 if(uaItem->checkDataLoss()) {
