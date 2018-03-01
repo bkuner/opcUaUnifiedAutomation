@@ -305,7 +305,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
     uaItem->stat = 1;       // not conntcted
     uaItem->isArray = 0;    // default, set in init_record()
     uaItem->prec = prec;
-    uaItem->debug = prec->tpro;
+    uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     uaItem->flagLock = epicsMutexMustCreate();
     uaItem->samplingInterval = drvOpcua_DefaultSamplingInterval;
     uaItem->queueSize = drvOpcua_DefaultQueueSize;
@@ -400,7 +400,7 @@ long write_longout (struct longoutRecord* prec)
     UaVariant var;
 
     if(uaItem->prec->tpro > 1)
-        uaItem->debug = uaItem->prec->tpro-1;   // to avoid debug for habitual TPRO=1
+        uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     if (uaItem->flagSuppressWrite ) {
         if(uaItem->varVal.toInt32(prec->val)) {
             if(uaItem->debug) errlogPrintf("%s: conversion toInt32 OutOfRange\n",uaItem->prec->name);
@@ -470,7 +470,7 @@ long write_mbboDirect (struct mbboDirectRecord* prec)
     UaVariant var;
 
     if(uaItem->prec->tpro > 1)
-        uaItem->debug = uaItem->prec->tpro-1;   // to avoid debug for habitual TPRO=1
+        uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
 
     if (uaItem->flagSuppressWrite) {
 
@@ -550,7 +550,7 @@ long write_mbbo (struct mbboRecord* prec)
     UaVariant var;
 
     if(uaItem->prec->tpro > 1)
-        uaItem->debug = uaItem->prec->tpro-1;   // to avoid debug for habitual TPRO=1
+        uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     if (uaItem->flagSuppressWrite) {
         epicsUInt32 rval;
         if(uaItem->varVal.toUInt32(rval)) {
@@ -642,7 +642,7 @@ long write_bo (struct boRecord* prec)
     UaVariant var;
 
     if(uaItem->prec->tpro > 1)
-        uaItem->debug = uaItem->prec->tpro-1;   // to avoid debug for habitual TPRO=1
+        uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     if (uaItem->flagSuppressWrite) {
         if(uaItem->varVal.toUInt32(prec->rval)) {
             if(uaItem->debug) errlogPrintf("%s: conversion toUInt32 OutOfRange\n",uaItem->prec->name);
@@ -687,7 +687,7 @@ long write_ao (struct aoRecord* prec)
     UaVariant var;
 
     if(uaItem->prec->tpro > 1)
-        uaItem->debug = uaItem->prec->tpro-1;   // to avoid debug for habitual TPRO=1
+        uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     if (uaItem->flagSuppressWrite) {
         bool useValue = true;
         double value;
@@ -835,7 +835,7 @@ long write_stringout (struct stringoutRecord* prec)
 
 
     if(uaItem->prec->tpro > 1)
-        uaItem->debug = uaItem->prec->tpro-1;   // to avoid debug for habitual TPRO=1
+        uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     if( uaItem->flagSuppressWrite) {
         if( uaItem->itemDataType != OpcUaType_String )
             ret = 1;
@@ -1005,11 +1005,10 @@ static long read(dbCommon * prec) {
                 errlogPrintf("%s read error uaItem = 0\n", prec->name);
                 return 1;
             }
-
-            if(prec->tpro > 1)
-                uaItem->debug = prec->tpro-1;   // to avoid debug for habitual TPRO=1
+            uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
 
             ret = uaItem->stat;
+
             if(!ret)
                 prec->udf=FALSE;
     }

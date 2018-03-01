@@ -324,12 +324,12 @@ long OpcUaSetupMonitors(void)
     status = pMyClient->readFunc(values, serviceSettings, diagnosticInfos,OpcUa_Attributes_Value);
     if (status.isBad()) {
         errlogPrintf("OpcUaSetupMonitors: READ VALUES failed with status %s\n", status.toString().toUtf8());
-        return -1;
+        return 1;
     }
     status = pMyClient->readFunc(attribs, serviceSettings, diagnosticInfos, OpcUa_Attributes_UserAccessLevel);
     if (status.isBad()) {
         errlogPrintf("OpcUaSetupMonitors: READ VALUES failed with status %s\n", status.toString().toUtf8());
-        return -1;
+        return 1;
     }
     if(pMyClient->getDebug() > 1) errlogPrintf("OpcUaSetupMonitors READ of %d values returned ok\n", values.length());
     for(OpcUa_UInt32 i=0; i<values.length(); i++) {

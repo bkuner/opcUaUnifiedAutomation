@@ -75,15 +75,16 @@ void DevUaSubscription::dataChange(
                        UaStatus(dataNotifications[i].Value.StatusCode).toString().toUtf8(),dataNotifications[i].ClientHandle);
                 throw dataChangeError();
             }
-            uaItem->stat = 0;
             uaItem->varVal = dataNotifications[i].Value.Value;
+            uaItem->stat = (uaItem->varVal.isArray() == uaItem->isArray) ? 0 : 1;
 
             if(uaItem->inpDataType) { // is OUT Record
                     callbackRequest(&(uaItem->callback)); // out-records are SCAN="passive" so scanIoRequest doesn't work
             }
             else { // is IN Record
-                if(uaItem->prec->scan == SCAN_IO_EVENT)
+                if(uaItem->prec->scan <= SCAN_IO_EVENT) {
                     scanIoRequest( uaItem->ioscanpvt );    // Update the record immediatly, for scan>SCAN_IO_EVENT update by periodic scan.
+                }
             }
         }
         catch(dataChangeError) {
@@ -104,9 +105,10 @@ void DevUaSubscription::dataChange(
             uaItem->prec->time.nsec         = dt.msec()*1000000L; // msec is 100ns steps
         }
         if(uaItem->debug >= 4) {
-            errlogPrintf("\tepicsType: %2d,%s opcType%2d:%s\n\tserver timestamp:%s, TSE:%2d\n",
+            errlogPrintf("\tepicsType: %2d,%s opcType%2d:%s\n\tValue: %s item stat: %d\n\tserver timestamp:%s, TSE:%2d\n",
                          uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
                          uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
+                         uaItem->varVal.toString().toUtf8(),uaItem->stat,
                          dt.toString().toUtf8(),uaItem->prec->tse);
         }
         epicsMutexUnlock(uaItem->flagLock);
