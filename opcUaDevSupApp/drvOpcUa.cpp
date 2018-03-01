@@ -349,29 +349,23 @@ long OpcUaSetupMonitors(void)
                 UaVariant var = attribs[i].Value;
                 var.toUInt32(uaItem->userAccLvl);
             }
-            if(values[i].Value.ArrayType && !uaItem->isArray) {
-                uaItem->stat = 1;
-                errlogPrintf("%s: Don't Support Array Data\n",uaItem->prec->name);
-            }
-            else {
-                epicsMutexLock(uaItem->flagLock);
-                uaItem->itemDataType = (int) values[i].Value.Datatype;
-                uaItem->isArray = 0;
-                epicsMutexUnlock(uaItem->flagLock);
+            epicsMutexLock(uaItem->flagLock);
+            uaItem->itemDataType = (int) values[i].Value.Datatype;
+            epicsMutexUnlock(uaItem->flagLock);
 
-                if(pMyClient->getDebug() > 0) {
-                    if(uaItem->checkDataLoss()) {
-                        errlogPrintf("%20s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
-                                variantTypeStrings(uaItem->itemDataType));
-                    }
-                    if( (uaItem->userAccLvl & 0x2) == 0 && ((int) uaItem->inpDataType))    // no write access to out record
-                        errlogPrintf("%20s: no write Access!\n",uaItem->prec->name);
-                    if( !(uaItem->userAccLvl & 0x1) )                                  // no read access
-                        errlogPrintf("%20s: no read Access!\n",uaItem->prec->name);
-                    if(pMyClient->getDebug() > 3) errlogPrintf("%4d %15s %p\n",uaItem->itemIdx,uaItem->prec->name,uaItem);
+            uaItem->stat = (((int)uaItem->varVal.arrayType() == uaItem->isArray) & (uaItem->stat == 0)) ? 0 : 1; // need to check array/scalar each time??
+            uaItem->stat = ((uaItem->stat == 0) & ((int)values[i].Value.ArrayType == uaItem->isArray)) ? 0 : 1;
+            if(pMyClient->getDebug() > 0) {
+                if(uaItem->checkDataLoss()) {
+                    errlogPrintf("%20s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
+                            variantTypeStrings(uaItem->itemDataType));
                 }
+                if( (uaItem->userAccLvl & 0x2) == 0 && ((int) uaItem->inpDataType))    // no write access to out record
+                    errlogPrintf("%20s: no write Access!\n",uaItem->prec->name);
+                if( !(uaItem->userAccLvl & 0x1) )                                  // no read access
+                    errlogPrintf("%20s: no read Access!\n",uaItem->prec->name);
+                if(pMyClient->getDebug() > 3) errlogPrintf("%4d %15s %p\n",uaItem->itemIdx,uaItem->prec->name,uaItem);
             }
-            uaItem->stat = 0;
         }
     }
     pMyClient->createMonitoredItems();

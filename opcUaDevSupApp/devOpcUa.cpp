@@ -279,7 +279,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
         if (inpType) status = S_dev_badOutType; else status = S_dev_badInpType;
         recGblRecordError(status, prec, "devOpcUa (init_record) Bad INP/OUT link type (must be INST_IO)");
         return status;
-    }                                                                                               
+    }
 
     uaItem =  (OPCUA_ItemINFO *) calloc(1,sizeof(OPCUA_ItemINFO));
     if (!uaItem) {
@@ -303,6 +303,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
     prec->dpvt = uaItem;
     uaItem->recDataType = recType;
     uaItem->stat = 1;       // not conntcted
+    uaItem->isArray = 0;    // default, set in init_record()
     uaItem->prec = prec;
     uaItem->debug = prec->tpro;
     uaItem->flagLock = epicsMutexMustCreate();
@@ -356,7 +357,7 @@ long toOpcuaTypeVariant(OPCUA_ItemINFO* uaItem,UaVariant &var,T VAL)
 
 
 /***************************************************************************
-    	    	    	    	Longin Support
+                                Longin Support
  **************************************************************************-*/
 long init_longin (struct longinRecord* prec)
 {
@@ -604,7 +605,7 @@ long read_bi (struct biRecord* prec)
     char buf[256];
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
     long ret = 0;
-	
+
     epicsMutexLock(uaItem->flagLock);
     ret = read((dbCommon*)prec);
     if (!ret) {
@@ -855,7 +856,7 @@ long write_stringout (struct stringoutRecord* prec)
 }
 
 /***************************************************************************
-    	    	    	    	Waveform Support
+                                Waveform Support
  **************************************************************************-*/
 long init_waveformRecord(struct waveformRecord* prec)
 {
@@ -890,11 +891,12 @@ long read_wf(struct waveformRecord *prec)
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
     epicsMutexLock(uaItem->flagLock);
     long ret = read((dbCommon*)prec);
-    if(!ret) {
-        prec->nord = uaItem->arraySize;
-        uaItem->arraySize = prec->nelm; //FIXME: Is that really useful at every processing? NELM never changes.
-        prec->udf=FALSE;
-    }
+    if(ret)
+        return ret;
+    prec->nord = uaItem->arraySize;
+    uaItem->arraySize = prec->nelm; //FIXME: Is that really useful at every processing? NELM never changes.
+    prec->udf=FALSE;
+
     try{
         UaVariant &val = uaItem->varVal;
         if(val.isArray()){
