@@ -279,27 +279,12 @@ void printVal(UaVariant &val,OpcUa_UInt32 IdxUaItemInfo)
 
 long OPCUA_ItemINFO::write(UaVariant &tempValue)
 {
-    UaStatus            status=0;
-    ServiceSettings     serviceSettings;    // Use default settings
-    UaWriteValues       nodesToWrite;       // Array of nodes to write
-    UaStatusCodeArray   results;            // Returns an array of status codes
-    UaDiagnosticInfos   diagnosticInfos;    // Returns an array of diagnostic info
-
-    nodesToWrite.create(1);
-    if(stat == 0) {                         // if connected
-        UaNodeId tempNode(pMyClient->vUaNodeId[itemIdx]);
-        tempNode.copyTo(&nodesToWrite[0].NodeId);
-        nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
-        tempValue.copyTo(&nodesToWrite[0].Value.Value);
-        status = pMyClient->writeFunc(serviceSettings,nodesToWrite,results,diagnosticInfos);
-        if ( status.isBad()  )              // write on a read only node is not bad! Can't be checked here!!
-        {
-            if(pMyClient->getDebug()) errlogPrintf("%s\tOpcUaWriteItems: UaSession::write failed [ret=%s] **\n",prec->name,status.toString().toUtf8());
-            return 1;
-        }
-    }
-    else
+    UaStatus status = pMyClient->writeFunc(this, tempValue);
+    if ( status.isBad()  )              // write on a read only node is not bad! Can't be checked here!!
+    {
+        if(pMyClient->getDebug()) errlogPrintf("%s\tOpcUaWriteItems: UaSession::write failed [ret=%s] **\n",prec->name,status.toString().toUtf8());
         return 1;
+    }
     return 0;
 }
 

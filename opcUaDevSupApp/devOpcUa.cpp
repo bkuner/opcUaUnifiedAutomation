@@ -979,10 +979,16 @@ static void outRecordCallback(CALLBACK *pcallback) {
         errlogPrintf("out Callb:  %s %s varVal:%s\n", getTime(buf),prec->name,uaItem->varVal.toString().toUtf8());
 
     dbScanLock(prec);
-    uaItem->flagSuppressWrite = 1;
-    prec->udf=FALSE;
-    dbProcess(prec);
-    uaItem->flagSuppressWrite = 0;
+    if(prec->pact == TRUE) {        // waiting for async write operation to be finished. Try again later
+        epicsThreadSleep(0.005);    // may cause two dbProcess's if another update will occure before this one is finished.
+        callbackRequest(&(uaItem->callback)); // Does this matter? Do we need to check in teh subscription if a callbackRequest is pending?
+    }
+    else {
+        uaItem->flagSuppressWrite = 1;
+        prec->udf=FALSE;
+        dbProcess(prec);
+        uaItem->flagSuppressWrite = 0;
+    }
     dbScanUnlock(prec);
 }
 

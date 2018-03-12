@@ -33,8 +33,8 @@ public:
     UaStatus createMonitoredItems();
 
     UaStatus readFunc(UaDataValues &values,UaClientSdk::ServiceSettings &serviceSettings,UaDiagnosticInfos &diagnosticInfos,int Attribute);
+    UaStatus writeFunc(OPCUA_ItemINFO *uaItem, UaVariant &tempValue);
 
-    UaStatus writeFunc(UaClientSdk::ServiceSettings &serviceSettings,UaWriteValues &nodesToWrite,UaStatusCodeArray &results,UaDiagnosticInfos &diagnosticInfos);
     void writeComplete(OpcUa_UInt32 transactionId,const UaStatus&result,const UaStatusCodeArray& results,const UaDiagnosticInfos& diagnosticInfos);
 
     void itemStat(int v);
