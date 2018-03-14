@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <math.h>
 
 // #EPICS LIBS
 #include <dbAccess.h>
@@ -585,6 +586,7 @@ long write_mbbo (struct mbboRecord* prec)
         }
     }
     else {
+        errlogPrintf("write_mbbo RVAL=%X\n",prec->rval);
         ret = toOpcuaTypeVariant(uaItem,var,(prec->rval & prec->mask));
         if( !ret)
             ret = write((dbCommon*)prec,var);
@@ -689,53 +691,77 @@ long write_ao (struct aoRecord* prec)
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
     long ret=0;
     UaVariant var;
+    double value;
 
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
-    if (uaItem->flagSuppressWrite) {
-        bool useValue = true;
-        double value;
-        if (prec->linr != menuConvertNO_CONVERSION) {
-            epicsInt32 rval;
-            if(uaItem->varVal.toInt32(rval)) {
-                if(uaItem->debug) errlogPrintf("%s: conversion toInt32 OutOfRange\n",uaItem->prec->name);
-                ret = 1;
-            }
-            else {
-                prec->rval = rval;
-                value = (double)prec->rval + (double)prec->roff;
-                if (prec->aslo != 0.0) value *= prec->aslo;
-                value += prec->aoff;
-                if ((prec->linr == menuConvertLINEAR) || (prec->linr == menuConvertSLOPE)) {
-                    value = value*prec->eslo + prec->eoff;
-                } else {
-                    if (cvtRawToEngBpt(&value, prec->linr, prec->init,
-                                       (void **)&prec->pbrk, &prec->lbrk) != 0) useValue = false;
+    if (uaItem->flagIsRdbk) {
+        if(uaItem->varVal.toDouble(value)) {
+            if(uaItem->debug) errlogPrintf("%s: conversion toDouble OutOfRange\n",uaItem->prec->name);
+            ret = 1;
+        }
+        else {  // do conversion
+            prec->rval = (epicsInt32) value;    // just to have a rval
+
+            /* adjust slope and offset */
+            if(prec->aslo!=0.0) value*=prec->aslo;
+            value+=prec->aoff;
+
+            switch (prec->linr ) {
+            case menuConvertNO_CONVERSION:
+                break;
+            case menuConvertLINEAR:
+            case  menuConvertSLOPE:
+                value = (value * prec->eslo) + prec->eoff;
+                // ASLO/AOFF conversion
+                if (prec->eslo != 0.0) value *= prec->eslo;
+                value += prec->eoff;
+                break;
+            default: // must use breakpoint table
+                if (cvtRawToEngBpt(&value,prec->linr,prec->init,(void **)&(prec->pbrk),&prec->lbrk)!=0) {
+                    ret = 1;
                 }
             }
-        } else {
-            if(uaItem->varVal.toDouble(value)) {
-                if(uaItem->debug) errlogPrintf("%s: conversion toDouble OutOfRange\n",uaItem->prec->name);
-                ret = 1;
+            if (!ret) {
+//                prec->val = value;
+                prec->udf = isnan(value);
             }
-            else if (prec->aslo != 0.0) value *= prec->aslo;
-                value += prec->aoff;
-        }
-        if (useValue) {
-            prec->val = value;
-            prec->udf = isnan(value);
         }
     }
     else {
-        if(prec->linr == menuConvertNO_CONVERSION) {
-            ret = toOpcuaTypeVariant(uaItem,var,prec->oval);
-        } else {
-            ret = toOpcuaTypeVariant(uaItem,var,prec->rval);
+        value = prec->oval;
+
+        if(prec->oroc!= 0) {
+            if( fabs(value) < prec->oroc )
+                uaItem->flagRdbkOff &= 1;
+            else
+                uaItem->flagRdbkOff |= 2;
         }
+        // Conversion as done in aoRecord->convert(), but keep type double to write out.
+        // The record does the same conversion and sets rval (INT32).
+        switch (prec->linr) {
+        case menuConvertNO_CONVERSION:
+            break; /* do nothing*/
+        case menuConvertLINEAR:
+        case menuConvertSLOPE:
+            if (prec->eslo == 0.0) value = 0;
+            else value = (value - prec->eoff) / prec->eslo;
+            break;
+        default:
+            if (cvtEngToRawBpt(&value, prec->linr, prec->init,(void **)&(prec->pbrk), &prec->lbrk) != 0) {
+                recGblSetSevr(prec, SOFT_ALARM, MAJOR_ALARM);
+                return 1;
+            }
+        }
+
+        value -= prec->aoff;
+        if (prec->aslo != 0.0) value /= prec->aslo;
+
+        ret = toOpcuaTypeVariant(uaItem,var,value);
         if( !ret)
             ret = write((dbCommon*)prec,var);
     }
-    if(DEBUG_LEVEL >= 2) errlogPrintf("ao          %s %s\tVAL %f RVAL %d\n",getTime(buf),prec->name,prec->val,prec->rval);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("ao          %s %s\tOVAL %f OMOD:%d flagRdbkOff:%d \n",getTime(buf),prec->name,prec->oval, prec->omod,uaItem->flagRdbkOff);
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
     }
@@ -755,46 +781,55 @@ long init_ai (struct aiRecord* prec)
 long read_ai (struct aiRecord* prec)
 {
     char buf[256];
-    long ret;
+    long ret;   // Conversion done here!
+    double value;
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*) prec->dpvt;
 
     epicsMutexLock(uaItem->flagLock);
     ret = read((dbCommon*)prec);
     if (!ret) {
-        if (prec->linr == menuConvertNO_CONVERSION) {
-            double value;
-            if(uaItem->varVal.toDouble(value)) {
-                if(uaItem->debug) errlogPrintf("%s: conversion toDouble OutOfRange\n",uaItem->prec->name);
-                ret = 1;
-            }
-            else {
-                // ASLO/AOFF conversion
-                if (prec->aslo != 0.0) value *= prec->aslo;
-                value += prec->aoff;
-                // Smoothing
-                if (prec->smoo == 0.0 || prec->udf || !finite(prec->val))
-                    prec->val = value;
-                else
-                    prec->val = prec->val * prec->smoo + value * (1.0 - prec->smoo);
-                prec->udf = 0;
-                if(DEBUG_LEVEL>= 2) errlogPrintf("ai          %s %s\tbuf:%s VAL:%f\n", getTime(buf),(uaItem->varVal).toString().toUtf8(),prec->name,prec->val);
-                ret = 2;
-            }
-        } else {
-            epicsInt32 rval;
-             if(uaItem->varVal.toInt32(rval)) {
-                if(uaItem->debug) errlogPrintf("%s: conversion toInt32 OutOfRange\n",uaItem->prec->name);
-                ret = 1;
-            }
-            else {
-                 prec->rval = rval;
-                 prec->udf = 0;
-             }
+        if(uaItem->varVal.toDouble(value)) {
+            if(uaItem->debug) errlogPrintf("%s: conversion toDouble OutOfRange\n",uaItem->prec->name);
+            ret = 1;
         }
-        if(DEBUG_LEVEL >= 2) errlogPrintf("ai          %s %s\tbuf:%s RVAL:%d\n", getTime(buf),prec->name,(uaItem->varVal).toString().toUtf8(),prec->rval);
+        else {  // do conversion in the way the records convert() routine does it
+            if(prec->linr == menuConvertNO_CONVERSION)  // just to have a rval
+                prec->rval = (epicsInt32) value;
+
+            /* adjust slope and offset */
+            if(prec->aslo!=0.0) value*=prec->aslo;
+            value+=prec->aoff;
+
+            switch (prec->linr ) {
+            case menuConvertNO_CONVERSION:
+                break;
+            case menuConvertLINEAR:
+            case  menuConvertSLOPE:
+                value = (value * prec->eslo) + prec->eoff;
+                // ASLO/AOFF conversion
+                if (prec->eslo != 0.0) value *= prec->eslo;
+                value += prec->eoff;
+                if(DEBUG_LEVEL>= 2) errlogPrintf("ai          %s %s\tbuf:%s VAL:%f\n", getTime(buf),(uaItem->varVal).toString().toUtf8(),prec->name,prec->val);
+                break;
+            default: // must use breakpoint table
+                if (cvtRawToEngBpt(&value,prec->linr,prec->init,(void **)&(prec->pbrk),&prec->lbrk)!=0) {
+                    recGblSetSevr(prec,SOFT_ALARM,MAJOR_ALARM);
+                }
+            }
+
+            /* apply smoothing algorithm */
+            if (prec->smoo != 0.0 && finite(prec->val)){
+                if (prec->init) prec->val = value;	/* initial condition */
+                prec->val = value * (1.00 - prec->smoo) + (prec->val * prec->smoo);
+            }else{
+                prec->val = value;
+            }
+            prec->udf = isnan(prec->val);
+        }
+        if(DEBUG_LEVEL >= 2) errlogPrintf("ai          %s %s\tbuf:%f VAL: %f RVAL:%d\n", getTime(buf),prec->name,value,prec->val,prec->rval);
     }
     epicsMutexUnlock(uaItem->flagLock);
-    return ret;
+    return (ret==0)?2:ret;
 }
 
 /***************************************************************************
