@@ -78,13 +78,14 @@ void DevUaSubscription::dataChange(
             uaItem->varVal = dataNotifications[i].Value.Value;
             uaItem->stat = (uaItem->varVal.isArray() == uaItem->isArray) ? 0 : 1;
 
-            if(uaItem->inpDataType) { // is OUT Record
-                    callbackRequest(&(uaItem->callback)); // out-records are SCAN="passive" so scanIoRequest doesn't work
+            if(uaItem->inpDataType) {                       // is OUT Record
+                if(!uaItem->flagRdbkOff)                    // readback switched off?
+                    callbackRequest(&(uaItem->callback));   // out-records are SCAN="passive" so scanIoRequest doesn't work
             }
-            else { // is IN Record
+            else {                                          // is IN Record
                 if(uaItem->prec->scan <= SCAN_IO_EVENT) {
-                    scanIoRequest( uaItem->ioscanpvt );    // Update the record immediatly, for scan>SCAN_IO_EVENT update by periodic scan.
-                }
+                    scanIoRequest( uaItem->ioscanpvt );     // Update the record immediatly,
+                }                                           // for scan>SCAN_IO_EVENT update by periodic scan.
             }
         }
         catch(dataChangeError) {

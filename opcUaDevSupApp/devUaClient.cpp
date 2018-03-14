@@ -32,6 +32,7 @@
 #include "drvOpcUa.h"
 #include "devUaSubscription.h"
 #include "devUaClient.h"
+#include <callback.h>
 
 using namespace UaClientSdk;
 
@@ -440,10 +441,6 @@ UaStatus DevUaClient::writeFunc(OPCUA_ItemINFO *uaItem, UaVariant &tempValue)
     //    return m_pSession->write(serviceSettings,nodesToWrite,results,diagnosticInfos);
 
     // Writes variable values asynchronous to OPC server
-    dbCommon *prec = uaItem->prec;
-    dbScanLock(prec);
-    prec->pact = TRUE;
-    dbScanUnlock(prec);
     OpcUa_UInt32 transactionId=uaItem->itemIdx;
     return m_pSession->beginWrite(serviceSettings,nodesToWrite,transactionId);
 }
@@ -452,17 +449,19 @@ void DevUaClient::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& resu
 {
     char timeBuffer[30];
 
-    dbScanLock(prec);
-    prec->pact = FALSE;
-    dbScanUnlock(prec);
+    OPCUA_ItemINFO *uaItem = vUaItemInfo[transactionId];
+
     if(result.isBad() && debug) {
         errlogPrintf("Bad Write Result: ");
         for(unsigned int i=0;i<results.length();i++) {
             errlogPrintf("%s \n",result.isBad()? result.toString().toUtf8():"ok");
         }
     }
-    else
-        if(prec->tpro >= 2) errlogPrintf("writeComplete %s: %s\n",vUaItemInfo[transactionId]->prec->name, getTime(timeBuffer));
+    else {
+        if(uaItem->prec->tpro >= 2) errlogPrintf("writeComplete %s: %s\n",uaItem->prec->name, getTime(timeBuffer));
+//        callbackRequestProcessCallback(&(uaItem->callback), priorityMedium,uaItem->prec);
+        callbackRequest(&(uaItem->callback));
+    }
 }
 
 UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSettings,UaDiagnosticInfos &diagnosticInfos, int attribute)

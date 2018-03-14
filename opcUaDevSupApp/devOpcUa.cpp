@@ -220,7 +220,7 @@ epicsExportAddress(dset,devwaveformOpcUa);
  *      Scan info items for option settings
  ***************************************************************************/
 
-static void scanInfoItems(const dbCommon *pcommon, OPCUA_ItemINFO *info)
+static void scanInfoItems(const dbCommon *pcommon, OPCUA_ItemINFO *uaItem)
 {
     long status;
     DBENTRY dbentry;
@@ -234,15 +234,18 @@ static void scanInfoItems(const dbCommon *pcommon, OPCUA_ItemINFO *info)
         return;
     }
 
+    if (dbFindInfo(pdbentry, "opcua:RDBKOFF") == 0) {
+        uaItem->flagRdbkOff = 1;
+    }
     if (dbFindInfo(pdbentry, "opcua:SAMPLING") == 0) {
-        info->samplingInterval = atof(dbGetInfoString(pdbentry));
+        uaItem->samplingInterval = atof(dbGetInfoString(pdbentry));
     }
     if (dbFindInfo(pdbentry, "opcua:QSIZE") == 0) {
-        info->queueSize = (epicsUInt32) atoi(dbGetInfoString(pdbentry));
+        uaItem->queueSize = (epicsUInt32) atoi(dbGetInfoString(pdbentry));
     }
     if (dbFindInfo(pdbentry, "opcua:DISCARD") == 0) {
         if (strncasecmp(dbGetInfoString(pdbentry), "new", 3) == 0) {
-            info->discardOldest = 0;
+            uaItem->discardOldest = 0;
         }
     }
     dbFinishEntry(pdbentry);
@@ -303,6 +306,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
     prec->dpvt = uaItem;
     uaItem->recDataType = recType;
     uaItem->stat = 1;       // not conntcted
+    uaItem->flagRdbkOff = 0;
     uaItem->isArray = 0;    // default, set in init_record()
     uaItem->prec = prec;
     uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
@@ -401,7 +405,7 @@ long write_longout (struct longoutRecord* prec)
 
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
-    if (uaItem->flagSuppressWrite ) {
+    if (uaItem->flagIsRdbk ) {
         if(uaItem->varVal.toInt32(prec->val)) {
             if(uaItem->debug) errlogPrintf("%s: conversion toInt32 OutOfRange\n",uaItem->prec->name);
             ret = 1;
@@ -472,7 +476,7 @@ long write_mbboDirect (struct mbboDirectRecord* prec)
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
 
-    if (uaItem->flagSuppressWrite) {
+    if (uaItem->flagIsRdbk) {
 
         epicsUInt32 rval;
         if(uaItem->varVal.toUInt32(rval)) {
@@ -551,7 +555,7 @@ long write_mbbo (struct mbboRecord* prec)
 
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
-    if (uaItem->flagSuppressWrite) {
+    if (uaItem->flagIsRdbk) {
         epicsUInt32 rval;
         if(uaItem->varVal.toUInt32(rval)) {
             if(uaItem->debug) errlogPrintf("%s: conversion toUInt32 OutOfRange\n",uaItem->prec->name);
@@ -643,7 +647,7 @@ long write_bo (struct boRecord* prec)
 
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
-    if (uaItem->flagSuppressWrite) {
+    if (uaItem->flagIsRdbk) {
         if(uaItem->varVal.toUInt32(prec->rval)) {
             if(uaItem->debug) errlogPrintf("%s: conversion toUInt32 OutOfRange\n",uaItem->prec->name);
             ret = 1;
@@ -836,7 +840,7 @@ long write_stringout (struct stringoutRecord* prec)
 
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
-    if( uaItem->flagSuppressWrite) {
+    if( uaItem->flagIsRdbk) {
         if( uaItem->itemDataType != OpcUaType_String )
             ret = 1;
         else {
@@ -984,10 +988,10 @@ static void outRecordCallback(CALLBACK *pcallback) {
         callbackRequest(&(uaItem->callback)); // Does this matter? Do we need to check in teh subscription if a callbackRequest is pending?
     }
     else {
-        uaItem->flagSuppressWrite = 1;
+        uaItem->flagIsRdbk = 1;
         prec->udf=FALSE;
         dbProcess(prec);
-        uaItem->flagSuppressWrite = 0;
+        uaItem->flagIsRdbk = 0;
     }
     dbScanUnlock(prec);
 }
@@ -1032,8 +1036,8 @@ static long write(dbCommon *prec,UaVariant &var) {
     long ret = 0;
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
     try {
-        if(DEBUG_LEVEL >= 2) errlogPrintf("write()\t\tflagSuppressWrite=%i\n",uaItem->flagSuppressWrite);
-        if( ! uaItem->flagSuppressWrite ) {
+        if(DEBUG_LEVEL >= 2) errlogPrintf("write()\t\tflagIsRdbk=%i\n",uaItem->flagIsRdbk);
+        if( ! uaItem->flagIsRdbk ) {
             epicsMutexLock(uaItem->flagLock);
             ret = uaItem->write(var);   // write on a read only node results NOT to isBad(). Can't be checked here!!
             epicsMutexUnlock(uaItem->flagLock);

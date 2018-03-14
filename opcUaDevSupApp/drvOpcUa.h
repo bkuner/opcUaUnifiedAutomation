@@ -65,7 +65,9 @@ public:
 
     int debug;              // debug level of this item, defined in field REC:TPRO
     int stat;               // Status of the opc connection or opcua quality: 0=ok, 1=not ok
-    int flagSuppressWrite;  // flag for OUT-records: prevent write back of incomming values
+    int flagIsRdbk;         // OUT-record flag to signal the dbProcess a value readback
+    int flagRdbkOff;        // OUT-record flag > 0 causes the dataChange callback NOT to process the record.
+                            // Set when ao-record is in step towards its value in OROC steps and by info field RDBKOFF
 
     IOSCANPVT ioscanpvt;    // in-records scan request.
     CALLBACK callback;      // out-records callback request.
