@@ -322,6 +322,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
 
     if(inpType) { // is OUT record
         uaItem->inpDataType = (epicsType) inpType;
+
         callbackSetCallback(outRecordCallback, &(uaItem->callback));
         callbackSetUser(prec, &(uaItem->callback));
     }
@@ -731,13 +732,13 @@ long write_ao (struct aoRecord* prec)
     else {
         value = prec->oval;
 
-        if(prec->oroc!= 0) {
+/*        if(prec->oroc!= 0) {
             if( fabs(value) < prec->oroc )
-                uaItem->flagRdbkOff &= 1;
+                uaItem->flagRdbkOff &= ~2;  // clear bit_1, bit_0 is set by info field
             else
-                uaItem->flagRdbkOff |= 2;
+                uaItem->flagRdbkOff |= 2;   // set bit_1
         }
-        // Conversion as done in aoRecord->convert(), but keep type double to write out.
+*/        // Conversion as done in aoRecord->convert(), but keep type double to write out.
         // The record does the same conversion and sets rval (INT32).
         switch (prec->linr) {
         case menuConvertNO_CONVERSION:
@@ -761,7 +762,7 @@ long write_ao (struct aoRecord* prec)
         if( !ret)
             ret = write((dbCommon*)prec,var);
     }
-    if(DEBUG_LEVEL >= 2) errlogPrintf("ao          %s %s\tOVAL %f OMOD:%d flagRdbkOff:%d \n",getTime(buf),prec->name,prec->oval, prec->omod,uaItem->flagRdbkOff);
+    if(DEBUG_LEVEL >= 2) errlogPrintf("ao          %s %s\tOVAL %f OMOD:%d flagRdbkOff:%d ret:%ld\n",getTime(buf),prec->name,prec->oval, prec->omod,uaItem->flagRdbkOff,ret);
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
     }
@@ -1001,31 +1002,34 @@ long read_wf(struct waveformRecord *prec)
     return ret;
 }
 
-
 /* callback service routine */
 static void outRecordCallback(CALLBACK *pcallback) {
     char buf[256];
     void *pVoid;
     dbCommon *prec;
     OPCUA_ItemINFO* uaItem;
+    typedef long Process(dbCommon*);
+    Process *procFunc;
 
     callbackGetUser(pVoid, pcallback);
     if(!pVoid)
         return;
     prec = (dbCommon*) pVoid;
+    procFunc = (Process*)prec->rset->process;
     uaItem = (OPCUA_ItemINFO*)prec->dpvt;
-    if(DEBUG_LEVEL >= 2)
-        errlogPrintf("out Callb:  %s %s varVal:%s\n", getTime(buf),prec->name,uaItem->varVal.toString().toUtf8());
 
     dbScanLock(prec);
     if(prec->pact == TRUE) {        // waiting for async write operation to be finished. Try again later
-        epicsThreadSleep(0.005);    // may cause two dbProcess's if another update will occure before this one is finished.
-        callbackRequest(&(uaItem->callback)); // Does this matter? Do we need to check in teh subscription if a callbackRequest is pending?
+        if(DEBUG_LEVEL >= 3) errlogPrintf("write Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
+        procFunc(prec);
+        epicsThreadSleep(0.05);               // May cause two dbProcess's if another update will occure before this one is finished.
+        callbackRequest(&(uaItem->callback)); // Does this matter? Better check in the subscription if a callbackRequest is pending?
     }
     else {
         uaItem->flagIsRdbk = 1;
         prec->udf=FALSE;
-        dbProcess(prec);
+        if(DEBUG_LEVEL >= 3) errlogPrintf("out Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
+        procFunc(prec);
         uaItem->flagIsRdbk = 0;
     }
     dbScanUnlock(prec);
@@ -1063,6 +1067,7 @@ static long read(dbCommon * prec) {
     }
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatREAD,menuAlarmSevrINVALID);
+        if(DEBUG_LEVEL>0) errlogPrintf("%s\tread() failed item->stat:%d\n",uaItem->prec->name,uaItem->stat);
     }
     return ret;
 }
@@ -1070,22 +1075,25 @@ static long read(dbCommon * prec) {
 static long write(dbCommon *prec,UaVariant &var) {
     long ret = 0;
     OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
-    try {
-        if(DEBUG_LEVEL >= 2) errlogPrintf("write()\t\tflagIsRdbk=%i\n",uaItem->flagIsRdbk);
-        if( ! uaItem->flagIsRdbk ) {
-            epicsMutexLock(uaItem->flagLock);
-            ret = uaItem->write(var);   // write on a read only node results NOT to isBad(). Can't be checked here!!
-            epicsMutexUnlock(uaItem->flagLock);
+    if(!prec->pact) {
+        prec->pact = TRUE;
+        try {
+            if(DEBUG_LEVEL >= 2) errlogPrintf("write()\t\tflagIsRdbk=%i\n",uaItem->flagIsRdbk);
+            if( ! uaItem->flagIsRdbk ) {
+                epicsMutexLock(uaItem->flagLock);
+                ret = uaItem->write(var);   // write on a read only node results NOT to isBad(). Can't be checked here!!
+                epicsMutexUnlock(uaItem->flagLock);
+            }
+        }
+        catch(...) {
+            errlogPrintf("%s: Exception in devOpcUa write() val=%s %s",prec->name,var.toString().toUtf8(),variantTypeStrings(uaItem->itemDataType));
+            ret=1;
         }
     }
-    catch(...) {
-        errlogPrintf("%s: Exception in devOpcUa write() val=%s %s",prec->name,var.toString().toUtf8(),variantTypeStrings(uaItem->itemDataType));
-        ret=1;
+    else {
+        ret = uaItem->stat; // 1 if writeComplete failed
     }
-    if(ret) {
-        recGblSetSevr(prec,menuAlarmStatWRITE,menuAlarmSevrINVALID);
-        if(pMyClient->getDebug()) errlogPrintf("%s\twrite() failed\n",uaItem->prec->name);
-    }
+
     return ret;
 }
 

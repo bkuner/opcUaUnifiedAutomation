@@ -448,20 +448,27 @@ UaStatus DevUaClient::writeFunc(OPCUA_ItemINFO *uaItem, UaVariant &tempValue)
 void DevUaClient::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& result,const UaStatusCodeArray& results,const UaDiagnosticInfos& diagnosticInfos)
 {
     char timeBuffer[30];
-
+    OpcUa_UInt32 i;
     OPCUA_ItemINFO *uaItem = vUaItemInfo[transactionId];
 
     if(result.isBad() && debug) {
-        errlogPrintf("Bad Write Result: ");
-        for(unsigned int i=0;i<results.length();i++) {
-            errlogPrintf("%s \n",result.isBad()? result.toString().toUtf8():"ok");
-        }
+        errlogPrintf("writeComplete failed! result: '%s'",result.toString().toUtf8());
+        uaItem->stat = 1;
     }
     else {
-        if(uaItem->prec->tpro >= 2) errlogPrintf("writeComplete %s: %s\n",uaItem->prec->name, getTime(timeBuffer));
-//        callbackRequestProcessCallback(&(uaItem->callback), priorityMedium,uaItem->prec);
-        callbackRequest(&(uaItem->callback));
+        uaItem->stat = 0;
+        for (i=0; i<results.length(); i++ )
+        {
+            if ( !OpcUa_IsGood(results[i]) )
+            {
+                errlogPrintf("** writeComplete of failed: %s\n", UaStatus(results[i]).toString().toUtf8());
+                uaItem->stat = 1;
+            }
+        }
+
     }
+    if(uaItem->debug >= 2) errlogPrintf("writeComplete %s: %s STAT: %d\n",uaItem->prec->name, getTime(timeBuffer), uaItem->stat);
+    callbackRequest(&(uaItem->callback));
 }
 
 UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSettings,UaDiagnosticInfos &diagnosticInfos, int attribute)

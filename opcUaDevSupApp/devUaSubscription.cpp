@@ -79,8 +79,9 @@ void DevUaSubscription::dataChange(
             uaItem->stat = (uaItem->varVal.isArray() == uaItem->isArray) ? 0 : 1;
 
             if(uaItem->inpDataType) {                       // is OUT Record
-                if(!uaItem->flagRdbkOff)                    // readback switched off?
+                if(!uaItem->flagRdbkOff) {                   // readback switched off?
                     callbackRequest(&(uaItem->callback));   // out-records are SCAN="passive" so scanIoRequest doesn't work
+                }
             }
             else {                                          // is IN Record
                 if(uaItem->prec->scan <= SCAN_IO_EVENT) {
