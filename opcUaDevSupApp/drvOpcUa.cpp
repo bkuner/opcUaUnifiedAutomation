@@ -140,7 +140,7 @@ int OPCUA_ItemINFO::checkDataLoss()
     else {
         epicstype = recDataType;
     }
-    if(recDataType) { // data loss warning for OUT-records
+    if(inpDataType) { // data loss warning for OUT-records
         switch(itemDataType){
         case OpcUaType_Boolean: // allow integer types to avoid warning for all booleans!
             switch(epicstype){
@@ -341,7 +341,11 @@ long OpcUaSetupMonitors(void)
             uaItem->stat = ((uaItem->stat == 0) & ((int)values[i].Value.ArrayType == uaItem->isArray)) ? 0 : 1;
             if(pMyClient->getDebug() > 0) {
                 if(uaItem->checkDataLoss()) {
-                    errlogPrintf("%20s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
+                    if ((int) uaItem->inpDataType) // OUT-Record
+                        errlogPrintf("%20s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
+                            variantTypeStrings(uaItem->itemDataType));
+                    else
+                        errlogPrintf("%20s: read may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
                             variantTypeStrings(uaItem->itemDataType));
                 }
                 if( (uaItem->userAccLvl & 0x2) == 0 && ((int) uaItem->inpDataType))    // no write access to out record
