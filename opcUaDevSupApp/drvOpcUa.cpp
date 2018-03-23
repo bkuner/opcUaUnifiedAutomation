@@ -17,7 +17,7 @@
 \*************************************************************************/
 
 #include <stdlib.h>
-#include <signal.h>
+#include <csignal>
 
 #include <boost/algorithm/string.hpp>
 #include <string>
@@ -123,6 +123,12 @@ extern "C" {
     }
 }
 
+// proper close of connections
+void signalHandler( int sig ) {
+    //opcUa_close(1);
+    errlogPrintf("Done.\n");
+    exit(0);
+}
 
 // Maximize debug level driver-dbg (active >=1) and uaItem.debug set by record.TPRO
 int OPCUA_ItemINFO::maxDebug(int dbg) {

@@ -451,7 +451,7 @@ void DevUaClient::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& resu
     OpcUa_UInt32 i;
     OPCUA_ItemINFO *uaItem = vUaItemInfo[transactionId];
 
-    if(result.isBad() && debug) {
+    if(result.isBad() ) {
         errlogPrintf("writeComplete failed! result: '%s'",result.toString().toUtf8());
         uaItem->stat = 1;
     }

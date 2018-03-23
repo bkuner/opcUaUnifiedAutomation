@@ -712,7 +712,7 @@ long write_ao (struct aoRecord* prec)
             case menuConvertNO_CONVERSION:
                 break;
             case menuConvertLINEAR:
-            case  menuConvertSLOPE:
+            case menuConvertSLOPE:
                 value = (value * prec->eslo) + prec->eoff;
                 // ASLO/AOFF conversion
                 if (prec->eslo != 0.0) value *= prec->eslo;
@@ -724,7 +724,7 @@ long write_ao (struct aoRecord* prec)
                 }
             }
             if (!ret) {
-//                prec->val = value;
+                prec->val = value;
                 prec->udf = isnan(value);
             }
         }
@@ -732,13 +732,15 @@ long write_ao (struct aoRecord* prec)
     else {
         value = prec->oval;
 
-/*        if(prec->oroc!= 0) {
-            if( fabs(value) < prec->oroc )
-                uaItem->flagRdbkOff &= ~2;  // clear bit_1, bit_0 is set by info field
-            else
-                uaItem->flagRdbkOff |= 2;   // set bit_1
-        }
-*/        // Conversion as done in aoRecord->convert(), but keep type double to write out.
+        // When OROC is set each process the record by dataChange callback is harmfull:
+        // 1. inc- decrement will be done twice!
+        // 2. The VAL field is set to the current OVAl field
+        if(prec->omod!= 0)          // use omod to disable process by dataChange callback if oroc is set.
+           uaItem->flagRdbkOff |= 2;   // set bit_1
+        else
+           uaItem->flagRdbkOff |= 2;   // set bit_1
+
+        // Conversion as done in aoRecord->convert(), but keep type double to write out.
         // The record does the same conversion and sets rval (INT32).
         switch (prec->linr) {
         case menuConvertNO_CONVERSION:
@@ -813,17 +815,18 @@ long read_ai (struct aiRecord* prec)
                 if(DEBUG_LEVEL>= 2) errlogPrintf("ai          %s %s\tbuf:%s VAL:%f\n", getTime(buf),(uaItem->varVal).toString().toUtf8(),prec->name,prec->val);
                 break;
             default: // must use breakpoint table
-                if (cvtRawToEngBpt(&value,prec->linr,prec->init,(void **)&(prec->pbrk),&prec->lbrk)!=0) {
+                if (cvtRawToEngBpt(&value,prec->linr,prec->init,(void **)&(prec->pbrk),&prec->lbrk) != 0) {
                     recGblSetSevr(prec,SOFT_ALARM,MAJOR_ALARM);
                 }
             }
-
             /* apply smoothing algorithm */
             if (prec->smoo != 0.0 && finite(prec->val)){
                 if (prec->init) prec->val = value;	/* initial condition */
                 prec->val = value * (1.00 - prec->smoo) + (prec->val * prec->smoo);
+                prec->rval = (epicsInt32) prec->val;
             }else{
                 prec->val = value;
+                prec->rval = (epicsInt32) value;
             }
             prec->udf = isnan(prec->val);
         }
@@ -1022,13 +1025,11 @@ static void outRecordCallback(CALLBACK *pcallback) {
     if(prec->pact == TRUE) {        // waiting for async write operation to be finished. Try again later
         if(DEBUG_LEVEL >= 3) errlogPrintf("write Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
         procFunc(prec);
-        epicsThreadSleep(0.05);               // May cause two dbProcess's if another update will occure before this one is finished.
-        callbackRequest(&(uaItem->callback)); // Does this matter? Better check in the subscription if a callbackRequest is pending?
     }
     else {
         uaItem->flagIsRdbk = 1;
         prec->udf=FALSE;
-        if(DEBUG_LEVEL >= 3) errlogPrintf("out Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
+        if(DEBUG_LEVEL >= 3) errlogPrintf("rdbk Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
         procFunc(prec);
         uaItem->flagIsRdbk = 0;
     }

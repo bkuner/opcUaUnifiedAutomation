@@ -80,6 +80,7 @@ void DevUaSubscription::dataChange(
 
             if(uaItem->inpDataType) {                       // is OUT Record
                 if(!uaItem->flagRdbkOff) {                   // readback switched off?
+                    if(uaItem->debug >= 2) errlogPrintf("\tcallbackRequest\n");
                     callbackRequest(&(uaItem->callback));   // out-records are SCAN="passive" so scanIoRequest doesn't work
                 }
             }
@@ -90,13 +91,13 @@ void DevUaSubscription::dataChange(
             }
         }
         catch(dataChangeError) {
-            if(debug || (uaItem->debug>= 2)) errlogPrintf("%s %s\tdataChange exception '%s'\n",timeBuf,uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
+            if(debug || (uaItem->debug>= 1)) errlogPrintf("%s %s\tdataChange exception '%s'\n",timeBuf,uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
             uaItem->stat = 1;
         }
         // I'm not shure about the posibility of another exception but of the damage it could do!
         catch(...) {
             uaItem->stat = 1;
-            if(debug || (uaItem->debug>= 2)) errlogPrintf("%s %s\tdataChange: unexpected exception '%s'\n",timeBuf,uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
+            if(debug || (uaItem->debug>= 1)) errlogPrintf("%s %s\tdataChange: unexpected exception '%s'\n",timeBuf,uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
             uaItem->debug = 4;
         }
 
