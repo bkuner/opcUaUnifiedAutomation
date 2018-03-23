@@ -236,7 +236,7 @@ static void scanInfoItems(const dbCommon *pcommon, OPCUA_ItemINFO *uaItem)
     }
 
     if (dbFindInfo(pdbentry, "opcua:RDBKOFF") == 0) {
-        uaItem->flagRdbkOff = 1;
+        uaItem->flagRdbkOff = (epicsUInt32) atoi(dbGetInfoString(pdbentry));
     }
     if (dbFindInfo(pdbentry, "opcua:SAMPLING") == 0) {
         uaItem->samplingInterval = atof(dbGetInfoString(pdbentry));
