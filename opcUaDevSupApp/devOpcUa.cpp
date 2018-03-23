@@ -678,12 +678,7 @@ long write_bo (struct boRecord* prec)
  **************************************************************************-*/
 long init_ao (struct aoRecord* prec)
 {
-    long ret;
-    if(prec->linr == menuConvertNO_CONVERSION)
-        ret = init_common((dbCommon*)prec,&(prec->out),epicsFloat64T,epicsFloat64T);
-    else
-        ret = init_common((dbCommon*)prec,&(prec->out),epicsInt32T,epicsFloat64T);
-    return ret;
+    return init_common((dbCommon*)prec,&(prec->out),epicsFloat64T,epicsFloat64T);
 }
 
 long write_ao (struct aoRecord* prec)
@@ -775,10 +770,7 @@ long write_ao (struct aoRecord* prec)
  ***************************************************************************/
 long init_ai (struct aiRecord* prec)
 {
-    if(prec->linr == menuConvertNO_CONVERSION)
-        return init_common((dbCommon*)prec,&(prec->inp),epicsFloat64T,0);
-    else
-        return init_common((dbCommon*)prec,&(prec->inp),epicsInt32T,0);
+    return init_common((dbCommon*)prec,&(prec->inp),epicsFloat64T,0);
 }
 
 long read_ai (struct aiRecord* prec)
