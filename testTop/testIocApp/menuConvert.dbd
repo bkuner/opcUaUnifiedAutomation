@@ -1,0 +1,6 @@
+menu(menuConvert) {
+	choice(menuConvertNO_CONVERSION,"NO CONVERSION")
+	choice(menuConvertSLOPE,"SLOPE")
+	choice(menuConvertLINEAR,"LINEAR")
+	choice(menuConvertTEST_BTBL, "TEST_BTBL")
+}

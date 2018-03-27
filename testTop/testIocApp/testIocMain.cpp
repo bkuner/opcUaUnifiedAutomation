@@ -40,11 +40,12 @@ extern void signalHandler(int sig);
 int main(int argc,char *argv[])
 {
     signal(SIGINT, signalHandler);  
-    
     if(argc>=2) {
         iocsh(argv[1]);
-        epicsThreadSleep(0.2);  
+        while(1)
+            epicsThreadSleep(1.0);  
     }
-    iocsh(NULL);
+// Shell won't work with the test environment!
+//    iocsh(NULL);
     return(0);
 }

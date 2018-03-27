@@ -1,0 +1,4 @@
+breaktable (TEST_BTBL) {
+	1000 1000
+	5000 20000
+}

@@ -1,0 +1,17 @@
+cd ../..
+epicsEnvSet IOC TESTIOC
+dbLoadDatabase "dbd/OPCUAIOC.dbd",0,0
+${IOC}_registerRecordDeviceDriver pdbbase
+
+# local freeOpcUaEpicsServer/bin/linux-x86_64/server
+drvOpcuaSetup("opc.tcp://localhost:4841","","",0)
+dbLoadRecords("db/testRecords.db","OBJ=NewObject")
+
+setIocLogDisable 1
+
+# See init warnings
+opcuaDebug(0)
+iocInit
+# Be quiet
+opcuaDebug(0)
+opcuaStat(0)
