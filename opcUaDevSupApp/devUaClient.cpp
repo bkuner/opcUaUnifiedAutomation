@@ -452,22 +452,22 @@ void DevUaClient::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& resu
     OPCUA_ItemINFO *uaItem = vUaItemInfo[transactionId];
 
     if(result.isBad() ) {
-        errlogPrintf("writeComplete failed! result: '%s'",result.toString().toUtf8());
-        uaItem->stat = 1;
+        errlogPrintf("writeComplete failed! result: %#8x '%s'",UaStatusCode(result).statusCode(),result.toString().toUtf8());
+        uaItem->stat = UaStatusCode(result).statusCode();
     }
     else {
         uaItem->stat = 0;
-        for (i=0; i<results.length(); i++ )
+        for (i=0; i<results.length(); i++ ) // length=1, we write single items
         {
             if ( !OpcUa_IsGood(results[i]) )
             {
-                errlogPrintf("** writeComplete of failed: %s\n", UaStatus(results[i]).toString().toUtf8());
-                uaItem->stat = 1;
+                errlogPrintf("** writeComplete of failed: %#8x (%s)\n", UaStatusCode(UaStatus(results[i])).statusCode(),UaStatus(results[i]).toString().toUtf8());
+                uaItem->stat = UaStatusCode(results [i]).statusCode();
             }
         }
 
     }
-    if(uaItem->debug >= 2) errlogPrintf("writeComplete %s: %s STAT: %d\n",uaItem->prec->name, getTime(timeBuffer), uaItem->stat);
+    if(uaItem->debug >= 2) errlogPrintf("writeComplete %s: %s STAT: %#8x (%s)\n",uaItem->prec->name, getTime(timeBuffer), uaItem->stat,UaStatus(uaItem->stat).toString().toUtf8());
     callbackRequest(&(uaItem->callback));
 }
 
@@ -528,18 +528,18 @@ void DevUaClient::itemStat(int verb)
         switch(verb){
         case 1: if(uaItem->stat == 0)  // only the bad
                 break;
-        case 2: errlogPrintf("%3d %-20s %2d,%-15s %2d:%-15s %2d %s\n",
+        case 2: errlogPrintf("%3d %-20s %2d,%-15s %2d:%-15s %#8x '%s' %s\n",
                     uaItem->itemIdx,uaItem->prec->name,
                     uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
                     uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
-                    uaItem->stat,uaItem->ItemPath );
+                    UaStatusCode(uaItem->stat).statusCode(),UaStatus(uaItem->stat).toString().toUtf8(),uaItem->ItemPath );
                 break;
-        default:errlogPrintf("%3d %-20s %2d,%-15s %2d:%-15s %2d %5g %4u %4s %s\n",
+        default:errlogPrintf("%3d %-20s %2d,%-15s %2d:%-15s %#8x '%s' %5g %4u %4s %s\n",
                     uaItem->itemIdx,uaItem->prec->name,
                     uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
                     uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
-                    uaItem->stat, uaItem->samplingInterval, uaItem->queueSize,
-                    ( uaItem->discardOldest ? "old" : "new" ), uaItem->ItemPath );
+                    UaStatusCode(uaItem->stat).statusCode(),UaStatus(uaItem->stat).toString().toUtf8(), uaItem->samplingInterval,
+                    uaItem->queueSize,( uaItem->discardOldest ? "old" : "new" ), uaItem->ItemPath );
         }
 
     }

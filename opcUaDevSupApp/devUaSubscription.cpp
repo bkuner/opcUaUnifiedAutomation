@@ -71,8 +71,10 @@ void DevUaSubscription::dataChange(
         try {
             if (OpcUa_IsBad(dataNotifications[i].Value.StatusCode) )
             {
-                if(debug) errlogPrintf("%s %s dataChange FAILED with status %s, Handle=%d\n",timeBuf,uaItem->prec->name,
-                       UaStatus(dataNotifications[i].Value.StatusCode).toString().toUtf8(),dataNotifications[i].ClientHandle);
+                if(debug)
+                    errlogPrintf("%s %s dataChange FAILED with status %s, Handle=%d\n",timeBuf,uaItem->prec->name,
+                                UaStatus(dataNotifications[i].Value.StatusCode).toString().toUtf8(),dataNotifications[i].ClientHandle);
+                uaItem->stat = dataNotifications[i].Value.StatusCode;
                 throw dataChangeError();
             }
             uaItem->varVal = dataNotifications[i].Value.Value;
@@ -92,7 +94,6 @@ void DevUaSubscription::dataChange(
         }
         catch(dataChangeError) {
             if(debug || (uaItem->debug>= 1)) errlogPrintf("%s %s\tdataChange exception '%s'\n",timeBuf,uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
-            uaItem->stat = 1;
         }
         // I'm not shure about the posibility of another exception but of the damage it could do!
         catch(...) {
@@ -108,7 +109,7 @@ void DevUaSubscription::dataChange(
             uaItem->prec->time.nsec         = dt.msec()*1000000L; // msec is 100ns steps
         }
         if(uaItem->debug >= 4) {
-            errlogPrintf("\tepicsType: %2d,%s opcType%2d:%s\n\tValue: %s item stat: %d\n\tserver timestamp:%s, TSE:%2d\n",
+            errlogPrintf("\tepicsType: %2d,%s opcType%2d:%s\n\tValue: %s item stat: %#8x\n\tserver timestamp:%s, TSE:%2d\n",
                          uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
                          uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
                          uaItem->varVal.toString().toUtf8(),uaItem->stat,

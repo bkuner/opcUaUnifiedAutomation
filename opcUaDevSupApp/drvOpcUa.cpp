@@ -285,13 +285,10 @@ void printVal(UaVariant &val,OpcUa_UInt32 IdxUaItemInfo)
 
 long OPCUA_ItemINFO::write(UaVariant &tempValue)
 {
-    UaStatus status = pMyClient->writeFunc(this, tempValue);
-    if ( status.isBad()  )              // write on a read only node is not bad! Can't be checked here!!
-    {
-        if(pMyClient->getDebug()) errlogPrintf("%s\tOpcUaWriteItems: UaSession::write failed [ret=%s] **\n",prec->name,status.toString().toUtf8());
-        return 1;
-    }
-    return 0;
+    stat = UaStatusCode(pMyClient->writeFunc(this, tempValue)).statusCode();
+    if( OpcUa_IsGood(stat))
+        return 0;
+    return 1;
 }
 
 /* iocShell: Read and setup uaItem Item data type, createMonitoredItems */
@@ -326,13 +323,13 @@ long OpcUaSetupMonitors(void)
     for(OpcUa_UInt32 i=0; i<values.length(); i++) {
         OPCUA_ItemINFO* uaItem = pMyClient->vUaItemInfo[i];
         if (OpcUa_IsBad(values[i].StatusCode)) {
-            uaItem->stat = 1;
+            uaItem->stat = values[i].StatusCode;
             errlogPrintf("%s: Read node '%s' failed with status %s\n",uaItem->prec->name, uaItem->ItemPath,
                          UaStatus(values[i].StatusCode).toString().toUtf8());
         }
         else {
             if(OpcUa_IsBad(attribs[i].StatusCode)) {
-                uaItem->stat = 1;
+                uaItem->stat = attribs[i].StatusCode;
                 errlogPrintf("%s: Read attribs' failed with status %s\n",uaItem->prec->name,
                              UaStatus(attribs[i].StatusCode).toString().toUtf8());
             }
@@ -362,7 +359,11 @@ long OpcUaSetupMonitors(void)
             }
         }
     }
-    pMyClient->createMonitoredItems();
+    status = pMyClient->createMonitoredItems();
+    if (status.isBad()) {
+        errlogPrintf("OpcUaSetupMonitors: createMonitoredItems() failed with status %s\n", status.toString().toUtf8());
+        return 1;
+    }
     return 0;
 }
 

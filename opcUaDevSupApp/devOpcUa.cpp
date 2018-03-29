@@ -1015,7 +1015,7 @@ static void outRecordCallback(CALLBACK *pcallback) {
 
     dbScanLock(prec);
     if(prec->pact == TRUE) {        // waiting for async write operation to be finished. Try again later
-        if(DEBUG_LEVEL >= 3) errlogPrintf("write Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
+        if(DEBUG_LEVEL >= 3) errlogPrintf("write Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%#8x, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
         procFunc(prec);
     }
     else {
@@ -1049,7 +1049,8 @@ static long read(dbCommon * prec) {
             }
             uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
 
-            ret = uaItem->stat;
+            if(uaItem->stat)
+                ret = 1; // something failed
 
             if(!ret)
                 prec->udf=FALSE;
@@ -1060,7 +1061,7 @@ static long read(dbCommon * prec) {
     }
     if(ret) {
         recGblSetSevr(prec,menuAlarmStatREAD,menuAlarmSevrINVALID);
-        if(DEBUG_LEVEL>0) errlogPrintf("%s\tread() failed item->stat:%d\n",uaItem->prec->name,uaItem->stat);
+        if(DEBUG_LEVEL>0) errlogPrintf("%s\tread() failed item->stat:%#8x\n",uaItem->prec->name,uaItem->stat);
     }
     return ret;
 }
@@ -1084,7 +1085,7 @@ static long write(dbCommon *prec,UaVariant &var) {
         }
     }
     else {
-        ret = uaItem->stat; // 1 if writeComplete failed
+        if(uaItem->stat) ret = 1; // 1 if writeComplete failed
     }
 
     return ret;

@@ -64,7 +64,7 @@ public:
     unsigned char discardOldest;
 
     int debug;              // debug level of this item, defined in field REC:TPRO
-    int stat;               // Status of the opc connection or opcua quality: 0=ok, 1=not ok
+    OpcUa_StatusCode stat;  // status of the last operation on the item 0=OpcGood, OpcUa_StatusCode or 1 for any internal error
     int flagIsRdbk;         // OUT-record flag to signal the dbProcess a value to readback by dataChange callback
     int flagRdbkOff;        // OUT-record flag > 0 causes the dataChange callback NOT to process the record.
                             // bit_1: Set temporary if an ao-record is in step towards its value in OROC steps
