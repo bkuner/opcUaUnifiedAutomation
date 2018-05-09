@@ -734,7 +734,7 @@ long write_ao (struct aoRecord* prec)
         if(prec->omod!= 0)          // use omod to disable process by dataChange callback if oroc is set.
            uaItem->flagRdbkOff |= 2;   // set bit_1
         else
-           uaItem->flagRdbkOff |= 2;   // set bit_1
+           uaItem->flagRdbkOff &= ~2;   // clr bit_1
 
         // Conversion as done in aoRecord->convert(), but keep type double to write out.
         // The record does the same conversion and sets rval (INT32).
@@ -1024,7 +1024,7 @@ static void outRecordCallback(CALLBACK *pcallback) {
         uaItem->flagIsRdbk = 1;
         prec->udf=FALSE;
         if(DEBUG_LEVEL >= 3) errlogPrintf("rdbk Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
-        procFunc(prec);
+        dbProcess(prec);
         uaItem->flagIsRdbk = 0;
     }
     dbScanUnlock(prec);
