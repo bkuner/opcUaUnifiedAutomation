@@ -428,6 +428,7 @@ UaStatus DevUaClient::writeFunc(OPCUA_ItemINFO *uaItem, UaVariant &tempValue)
     UaStatusCodeArray   results;            // Returns an array of status codes
     UaDiagnosticInfos   diagnosticInfos;    // Returns an array of diagnostic info
 
+    if (!pMyClient->isConnected()) return 1;
     nodesToWrite.create(1);
     if(uaItem->stat != 0)                          // if connected
         return 0x80000000;

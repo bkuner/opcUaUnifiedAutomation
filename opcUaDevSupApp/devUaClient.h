@@ -26,7 +26,7 @@ public:
     UaStatus subscribe();
     UaStatus unsubscribe();
     void setBadQuality();
-
+    bool isConnected() const { return m_pSession->isConnected(); }
     void addOPCUA_Item(OPCUA_ItemINFO *h);
     long getNodes();
     long getBrowsePathItem(OpcUa_BrowsePath &browsePaths,std::string &ItemPath,const char nameSpaceDelim,const char pathDelimiter);
