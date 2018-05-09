@@ -64,9 +64,9 @@ void RunServer(int wait,int debug)
   // Variables for the record test, values given by red write operations from the test records    
   bool mBool = true;
   Node tstBool = newobject.AddVariable(idx,"tstBool", Variant(mBool));
-  Node tstInt  = newobject.AddVariable(idx, "tstInt",   Variant((int)0));
-  Node tstDbl  = newobject.AddVariable(idx, "tstDbl",   Variant(0.0));
-  Node tstStr  = newobject.AddVariable(idx, "tstStr",   Variant(std::string("0-0-0-0-0")));
+  Node tstInt  = newobject.AddVariable(idx, "tstInt", Variant((int)0));
+  Node tstDbl  = newobject.AddVariable(idx, "tstDbl", Variant(0.0));
+  Node tstStr  = newobject.AddVariable(idx, "tstStr", Variant(std::string("0-0-0-0-0")));
   std::vector<int> tstArray;
   tstArray.resize(1000);
   Node tstArr  = newobject.AddVariable(idx, "tstArr",  Variant(Variant(tstArray)));
@@ -90,7 +90,7 @@ void RunServer(int wait,int debug)
 
     Variant nodeVal;
     Node nd;
-
+/*
 // BEGIN DOESN'T WORK!! Why ever!!
     // Set status for tstInt: 1=Uncertain, 2=bad, else good
     dataVal = tstInt.GetDataValue();
@@ -102,9 +102,9 @@ void RunServer(int wait,int debug)
     default:dataVal.Status = StatusCode::Good;
     }
     tstInt.SetAttribute(AttributeId::Value,dataVal);
-    std::cout<<"tstInt:"<<val<<" stat:"<<(unsigned long)dataVal.Status<<std::endl;
+//    std::cout<<"tstInt:"<<val<<" stat:"<<(unsigned long)dataVal.Status<<std::endl;
 // END DOESN'T WORK!! Why ever!!
-    
+*/
     std::this_thread::sleep_for(std::chrono::milliseconds(wait));
   }
 

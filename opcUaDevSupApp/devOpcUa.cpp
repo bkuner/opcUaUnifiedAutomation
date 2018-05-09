@@ -60,7 +60,7 @@
 //#undef  GEN_SIZE_OFFSET
 
 #include "drvOpcUa.h"
-#include "devUaClient.h"
+#include "devUaSession.h"
 
 using namespace UaClientSdk;
 
@@ -221,7 +221,7 @@ epicsExportAddress(dset,devwaveformOpcUa);
  *      Scan info items for option settings
  ***************************************************************************/
 
-static void scanInfoItems(const dbCommon *pcommon, OPCUA_ItemINFO *uaItem)
+static void scanInfoItems(const dbCommon *pcommon, UaItem *uaItem)
 {
     long status;
     DBENTRY dbentry;
@@ -256,7 +256,7 @@ static void opcuaMonitorControl (initHookState state)
 {
     switch (state) {
     case initHookAtIocRun:
-        OpcUaSetupMonitors();
+        DevUaSession::startAllSessions();
         break;
     default:
         break;
@@ -276,7 +276,8 @@ long init (int after)
 
 long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpType)
 {
-    OPCUA_ItemINFO* uaItem;
+    UaItem* uaItem;
+    long status;
 
     if(plnk->type != INST_IO) {
         long status;
@@ -285,36 +286,25 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
         return status;
     }
 
-    uaItem =  (OPCUA_ItemINFO *) calloc(1,sizeof(OPCUA_ItemINFO));
+    uaItem = new UaItem(prec);
     if (!uaItem) {
-        long status = S_db_noMemory;
+        status = S_db_noMemory;
         recGblRecordError(status, prec, "devOpcUa (init_record) Out of memory, calloc() failed");
         return status;
     }
-
-    if(strlen(plnk->value.instio.string) < ITEMPATHLEN) {
-        strcpy(uaItem->ItemPath,plnk->value.instio.string);
-        if(addOPCUA_Item(uaItem)) {
-            recGblRecordError(S_dev_NoInit, prec, "drvOpcUa not initialized");
-        }
-    }
-    else {
-        long status = S_db_badField;
-        recGblRecordError(status, prec, "devOpcUa (init_record) INP/OUT field too long");
+    if( ! uaItem->parseLink(plnk->value.instio.string) )  {
+        status = S_db_badField;
+        recGblRecordError(status, prec, "devOpcUa (init_record) can't parse INP/OUT field");
         return status;
     }
 
-    prec->dpvt = uaItem;
     uaItem->recDataType = recType;
-    uaItem->stat = 1;       // not conntcted
-    uaItem->flagRdbkOff = 0;
-    uaItem->isArray = 0;    // default, set in init_record()
-    uaItem->prec = prec;
-    uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
-    uaItem->flagLock = epicsMutexMustCreate();
+    prec->dpvt = uaItem;
+    // set defaults, overwrite in init_record()
     uaItem->samplingInterval = drvOpcua_DefaultSamplingInterval;
     uaItem->queueSize = drvOpcua_DefaultQueueSize;
     uaItem->discardOldest = drvOpcua_DefaultDiscardOldest;
+
     scanInfoItems(prec, uaItem);
     if(uaItem->debug >= 2)
         errlogPrintf("init_common %s\t PACT= %i\n", prec->name, prec->pact);
@@ -333,7 +323,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
 }
 
 template<typename T>
-long toOpcuaTypeVariant(OPCUA_ItemINFO* uaItem,UaVariant &var,T VAL)
+long toOpcuaTypeVariant(UaItem* uaItem,UaVariant &var,T VAL)
 {
     if(!uaItem) {
         if(uaItem->debug > 0) errlogPrintf("%s illegal *uaItem\n", uaItem->prec->name);
@@ -373,7 +363,7 @@ long init_longin (struct longinRecord* prec)
 long read_longin (struct longinRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     epicsMutexLock(uaItem->flagLock);
     long ret = read((dbCommon*)prec);;
 
@@ -401,7 +391,7 @@ long init_longout( struct longoutRecord* prec)
 long write_longout (struct longoutRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret=0;
     UaVariant var;
 
@@ -439,7 +429,7 @@ long init_mbbiDirect (struct mbbiDirectRecord* prec)
 long read_mbbiDirect (struct mbbiDirectRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret = read((dbCommon*)prec);
 
     epicsMutexLock(uaItem->flagLock);
@@ -471,7 +461,7 @@ long init_mbboDirect( struct mbboDirectRecord* prec)
 long write_mbboDirect (struct mbboDirectRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret=0;
     UaVariant var;
 
@@ -517,7 +507,7 @@ long init_mbbi (struct mbbiRecord* prec)
 long read_mbbi (struct mbbiRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret;
 
     epicsMutexLock(uaItem->flagLock);
@@ -551,7 +541,7 @@ long init_mbbo( struct mbboRecord* prec)
 long write_mbbo (struct mbboRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret=0;
     UaVariant var;
 
@@ -610,7 +600,7 @@ long init_bi (struct biRecord* prec)
 long read_bi (struct biRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret = 0;
 
     epicsMutexLock(uaItem->flagLock);
@@ -644,7 +634,7 @@ long init_bo( struct boRecord* prec)
 long write_bo (struct boRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret=0;
     UaVariant var;
 
@@ -684,7 +674,7 @@ long init_ao (struct aoRecord* prec)
 long write_ao (struct aoRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret=0;
     UaVariant var;
     double value;
@@ -733,7 +723,7 @@ long write_ao (struct aoRecord* prec)
         if(prec->omod!= 0)          // use omod to disable process by dataChange callback if oroc is set.
            uaItem->flagRdbkOff |= 2;   // set bit_1
         else
-           uaItem->flagRdbkOff |= 2;   // set bit_1
+           uaItem->flagRdbkOff &= ~2;  // clr bit_1
 
         // Conversion as done in aoRecord->convert(), but keep type double to write out.
         // The record does the same conversion and sets rval (INT32).
@@ -778,7 +768,7 @@ long read_ai (struct aiRecord* prec)
     char buf[256];
     long ret;   // Conversion done here!
     double value;
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*) prec->dpvt;
+    UaItem* uaItem = (UaItem*) prec->dpvt;
 
     epicsMutexLock(uaItem->flagLock);
     ret = read((dbCommon*)prec);
@@ -839,7 +829,7 @@ long init_stringin (struct stringinRecord* prec)
 long read_stringin (struct stringinRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret = 0;
 
     epicsMutexLock(uaItem->flagLock);
@@ -864,7 +854,7 @@ long init_stringout( struct stringoutRecord* prec)
 long write_stringout (struct stringoutRecord* prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     long ret=0;
     UaVariant var;
 
@@ -897,7 +887,7 @@ long init_waveformRecord(struct waveformRecord* prec)
 {
     long ret = 0;
     int recType=0;
-    OPCUA_ItemINFO* uaItem=NULL;
+    UaItem* uaItem=NULL;
     prec->dpvt = NULL;
     switch(prec->ftvl) {
         case menuFtypeSTRING: recType = epicsOldStringT; break;
@@ -912,7 +902,7 @@ long init_waveformRecord(struct waveformRecord* prec)
         case menuFtypeENUM  : recType = epicsEnum16T; break;
     }
     ret = init_common((dbCommon*)prec,&(prec->inp),(epicsType) recType,0);
-    uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    uaItem = (UaItem*)prec->dpvt;
     if(uaItem != NULL) {
         uaItem->isArray = 1;
         uaItem->arraySize = prec->nelm;
@@ -923,7 +913,7 @@ long init_waveformRecord(struct waveformRecord* prec)
 long read_wf(struct waveformRecord *prec)
 {
     char buf[256];
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     epicsMutexLock(uaItem->flagLock);
     long ret = read((dbCommon*)prec);
     if(ret)
@@ -1002,7 +992,7 @@ static void outRecordCallback(CALLBACK *pcallback) {
     char buf[256];
     void *pVoid;
     dbCommon *prec;
-    OPCUA_ItemINFO* uaItem;
+    UaItem* uaItem;
     typedef long Process(dbCommon*);
     Process *procFunc;
 
@@ -1011,7 +1001,7 @@ static void outRecordCallback(CALLBACK *pcallback) {
         return;
     prec = (dbCommon*) pVoid;
     procFunc = (Process*)prec->rset->process;
-    uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    uaItem = (UaItem*)prec->dpvt;
 
     dbScanLock(prec);
     if(prec->pact == TRUE) {        // waiting for async write operation to be finished. Try again later
@@ -1022,14 +1012,14 @@ static void outRecordCallback(CALLBACK *pcallback) {
         uaItem->flagIsRdbk = 1;
         prec->udf=FALSE;
         if(DEBUG_LEVEL >= 3) errlogPrintf("rdbk Callb:  %s %s PACT:%d varVal:%s uaItem->stat:%d, RdbkOff:%d, IsRdbk:%d\n", getTime(buf),prec->name,prec->pact,uaItem->varVal.toString().toUtf8(),uaItem->stat,uaItem->flagRdbkOff,uaItem->flagIsRdbk);
-        procFunc(prec);
+        dbProcess(prec);
         uaItem->flagIsRdbk = 0;
     }
     dbScanUnlock(prec);
 }
 
 static long get_ioint_info(int cmd, dbCommon *prec, IOSCANPVT * ppvt) {
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     if(!prec || !prec->dpvt)
         return 1;
     *ppvt = uaItem->ioscanpvt;
@@ -1041,7 +1031,7 @@ static long get_ioint_info(int cmd, dbCommon *prec, IOSCANPVT * ppvt) {
 /* Setup commons for all record types: debug level, alarms. Don't deal with the value! */
 static long read(dbCommon * prec) {
     long ret = 0;
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     try {
         if(!uaItem) {
                 errlogPrintf("%s read error uaItem = 0\n", prec->name);
@@ -1068,7 +1058,7 @@ static long read(dbCommon * prec) {
 
 static long write(dbCommon *prec,UaVariant &var) {
     long ret = 0;
-    OPCUA_ItemINFO* uaItem = (OPCUA_ItemINFO*)prec->dpvt;
+    UaItem* uaItem = (UaItem*)prec->dpvt;
     if(!prec->pact) {
         prec->pact = TRUE;
         try {

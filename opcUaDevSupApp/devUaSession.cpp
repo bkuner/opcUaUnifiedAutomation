@@ -31,7 +31,7 @@
 #define epicsTypesGLOBAL
 #include "drvOpcUa.h"
 #include "devUaSubscription.h"
-#include "devUaClient.h"
+#include "devUaSession.h"
 #include <callback.h>
 
 using namespace UaClientSdk;
@@ -49,23 +49,35 @@ inline const char *serverStatusStrings(UaClient::ServerStatus type)
     }
 }
 
-DevUaClient::DevUaClient(int autoCon=1,int debug=0,double opcua_AutoConnectInterval)
-    : debug(debug)
+std::map<std::string,DevUaSession*> DevUaSession::sessions;         // sessionTag = DevUaSession*,       set by drvOpcuaSetup()
+std::map<std::string,DevUaSession*> DevUaSession::subscr2session;   // subscriptionTag = DevUaSession*, set by drvOpcuaSubscription()
+
+DevUaSession::DevUaSession(std::string &t,int autoCon=1,int debug=0,double opcua_AutoConnectInterval=10)
+    : debug(debug), tag(t)
     , serverConnectionStatus(UaClient::Disconnected)
     , initialSubscriptionOver(false)
     , queue (epicsTimerQueueActive::allocate(true))
 {
+    DevUaSession::sessions.insert(std::make_pair(tag,this) );
+
     drvOpcua_AutoConnectInterval = opcua_AutoConnectInterval; // Configurable default for auto connection attempt interval
     m_pSession            = new UaSession();
-    m_pDevUaSubscription  = new DevUaSubscription(getDebug());
+
     autoConnect = autoCon;
     if(autoConnect)
         autoConnector     = new autoSessionConnect(this, drvOpcua_AutoConnectInterval, queue);
 }
 
-DevUaClient::~DevUaClient()
+DevUaSession::~DevUaSession()
 {
-    delete m_pDevUaSubscription;
+    std::map<std::string,DevUaSubscription*>::iterator it;
+    while(it != subscriptions.end())
+    {
+        //std::cout<<it->first<<" :: "<<it->second<<std::endl;
+        it->second->deleteSubscription();
+        it++;
+    }
+
     if (m_pSession)
     {
         if (m_pSession->isConnected())
@@ -81,7 +93,7 @@ DevUaClient::~DevUaClient()
         delete autoConnector;
 }
 
-void DevUaClient::connectionStatusChanged(
+void DevUaSession::connectionStatusChanged(
     OpcUa_UInt32             clientConnectionId,
     UaClient::ServerStatus   serverStatus)
 {
@@ -89,7 +101,7 @@ void DevUaClient::connectionStatusChanged(
     char timeBuffer[30];
 
     if(debug)
-        errlogPrintf("%s opcUaClient: Connection status changed to %d (%s)\n",
+        errlogPrintf("%s opcUaSession: Connection status changed to %d (%s)\n",
                  getTime(timeBuffer),
                  serverStatus,
                  serverStatusStrings(serverStatus));
@@ -109,7 +121,7 @@ void DevUaClient::connectionStatusChanged(
                 || serverConnectionStatus == UaClient::NewSessionCreated
                 || (serverConnectionStatus == UaClient::Disconnected && initialSubscriptionOver)) {
             this->subscribe();
-            OpcUaSetupMonitors();
+            startSession();
         }
         break;
     case UaClient::Disconnected:
@@ -120,13 +132,13 @@ void DevUaClient::connectionStatusChanged(
 }
 
 // Set uaItem->stat = 1 if connectionStatusChanged() to bad connection
-void DevUaClient::setBadQuality()
+void DevUaSession::setBadQuality()
 {
     epicsTimeStamp	 now;
     epicsTimeGetCurrent(&now);
 
     for(OpcUa_UInt32 bpItem=0;bpItem<vUaItemInfo.size();bpItem++) {
-        OPCUA_ItemINFO *uaItem = vUaItemInfo[bpItem];
+        UaItem *uaItem = vUaItemInfo[bpItem];
         uaItem->prec->time = now;
         uaItem->stat = 1;
         if(uaItem->inpDataType) // is OUT Record
@@ -136,32 +148,22 @@ void DevUaClient::setBadQuality()
     }
 }
 
-// add OPCUA_ItemINFO to vUaItemInfo. Setup nodes is done by getNodes()
-void DevUaClient::addOPCUA_Item(OPCUA_ItemINFO *h)
+void DevUaSession::setDebug(int d)
 {
-    vUaItemInfo.push_back(h);
-    h->itemIdx = vUaItemInfo.size()-1;
-    if((h->debug >= 4) || (debug >= 4))
-        errlogPrintf("%s\tDevUaClient::addOPCUA_ItemINFO: idx=%d\n", h->prec->name, h->itemIdx);
-}
-
-void DevUaClient::setDebug(int d)
-{
-    m_pDevUaSubscription->debug = d;
     this->debug = d;
 }
 
-int DevUaClient::getDebug()
+int DevUaSession::getDebug()
 {
     return this->debug;
 }
 
 
-UaStatus DevUaClient::connect()
+UaStatus DevUaSession::connect()
 {
     UaStatus result;
 
-    // Provide information about the client
+    // Provide information about the session
     SessionConnectInfo sessionConnectInfo;
     sessionConnectInfo.sApplicationName = "HelmholtzgesellschaftBerlin Test Client";
     // Use the host name to generate a unique application URI
@@ -172,12 +174,12 @@ UaStatus DevUaClient::connect()
     // Security settings are not initialized - we connect without security for now
     SessionSecurityInfo sessionSecurityInfo;
 
-    if(debug) errlogPrintf("DevUaClient::connect() connecting to '%s'\n", url.toUtf8());
+    if(debug) errlogPrintf("DevUaSession::connect() connecting to '%s'\n", url.toUtf8());
     result = m_pSession->connect(url, sessionConnectInfo, sessionSecurityInfo, this);
 
     if (result.isBad())
     {
-        errlogPrintf("DevUaClient::connect() connection attempt failed with status %#8x (%s)\n",
+        errlogPrintf("DevUaSession::connect() connection attempt failed with status %#8x (%s)\n",
                      result.statusCode(),
                      result.toString().toUtf8());
         autoConnector->start();
@@ -186,7 +188,7 @@ UaStatus DevUaClient::connect()
     return result;
 }
 
-UaStatus DevUaClient::disconnect()
+UaStatus DevUaSession::disconnect()
 {
     UaStatus result;
 
@@ -198,7 +200,7 @@ UaStatus DevUaClient::disconnect()
 
     if (result.isBad())
     {
-        errlogPrintf("%s DevUaClient::disconnect failed with status %#8x (%s)\n",
+        errlogPrintf("%s DevUasession::disconnect failed with status %#8x (%s)\n",
                      getTime(buf),result.statusCode(),
                      result.toString().toUtf8());
     }
@@ -206,14 +208,45 @@ UaStatus DevUaClient::disconnect()
     return result;
 }
 
-UaStatus DevUaClient::subscribe()
+long DevUaSession::addSubscription(std::string &subscrTag)
 {
-    return m_pDevUaSubscription->createSubscription(m_pSession);
+    if(DevUaSession::subscr2session.insert(std::make_pair(subscrTag,this)).second == false ) {
+        errlogPrintf("Error: Subscription tag '%s' allready defined, must be unique!\n",subscrTag.c_str());
+        return 1;
+    }
+
+    DevUaSubscription *s = new DevUaSubscription(getDebug());
+    subscriptions.insert(std::make_pair(subscrTag,s));
+
+    return 0;
 }
 
-UaStatus DevUaClient::unsubscribe()
+UaStatus DevUaSession::subscribe()
 {
-    return m_pDevUaSubscription->deleteSubscription();
+    UaStatus stat = 0;
+    std::map<std::string,DevUaSubscription*>::iterator it;
+
+    while(it != subscriptions.end()) {
+        stat = it->second->createSubscription(m_pSession);
+        if(stat.isBad())
+            break;
+        it++;
+    }
+    return stat;
+}
+
+UaStatus DevUaSession::unsubscribe()
+{
+    UaStatus stat = 0;
+    std::map<std::string,DevUaSubscription*>::iterator it;
+
+    while(it != subscriptions.end()) {
+        stat = it->second->deleteSubscription();
+        if(stat.isBad())
+            break;
+        it++;
+    }
+    return stat;
 }
 
 void split(std::vector<std::string> &sOut,std::string &str, const char delimiter) {
@@ -226,8 +259,88 @@ void split(std::vector<std::string> &sOut,std::string &str, const char delimiter
 
     return;
 }
+long  DevUaSession::startSession(void)
+{
+    UaStatus status;
+    UaDataValues values;
+    UaDataValues attribs; // OpcUa_Attributes_UserAccessLevel
+    ServiceSettings     serviceSettings;
+    UaDiagnosticInfos   diagnosticInfos;
 
-long DevUaClient::getBrowsePathItem(OpcUa_BrowsePath &browsePaths,std::string &ItemPath,const char nameSpaceDelim,const char pathDelimiter)
+    if(debug) errlogPrintf("%s: startSession of %d items\n",tag.c_str(),(int)vUaItemInfo.size());
+
+    status = readFunc(values, serviceSettings, diagnosticInfos,OpcUa_Attributes_Value);
+    if (status.isBad()) {
+        errlogPrintf("%s: startSession: READ VALUES failed with status %s\n",tag.c_str(), status.toString().toUtf8());
+        return 1;
+    }
+    status = readFunc(attribs, serviceSettings, diagnosticInfos, OpcUa_Attributes_UserAccessLevel);
+    if (status.isBad()) {
+        errlogPrintf("%s: startSession: READ VALUES failed with status %s\n",tag.c_str(), status.toString().toUtf8());
+        return 1;
+    }
+    if(debug > 1) errlogPrintf("startSession READ of %d values returned ok\n", values.length());
+    for(OpcUa_UInt32 i=0; i<values.length(); i++) {
+        UaItem* uaItem = vUaItemInfo[i];
+        if (OpcUa_IsBad(values[i].StatusCode)) {
+            uaItem->stat = values[i].StatusCode;
+            errlogPrintf("%s: Read node %s '%s' failed with status %s\n",uaItem->prec->name,tag.c_str(), uaItem->ItemPath,
+                         UaStatus(values[i].StatusCode).toString().toUtf8());
+        }
+        else {
+            if(OpcUa_IsBad(attribs[i].StatusCode)) {
+                uaItem->stat = attribs[i].StatusCode;
+                errlogPrintf("%s: Read attribs' failed with status %s\n",uaItem->prec->name,
+                             UaStatus(attribs[i].StatusCode).toString().toUtf8());
+            }
+            else {
+                UaVariant var = attribs[i].Value;
+                var.toUInt32(uaItem->userAccLvl);
+            }
+            epicsMutexLock(uaItem->flagLock);
+            uaItem->itemDataType = (int) values[i].Value.Datatype;
+            epicsMutexUnlock(uaItem->flagLock);
+
+            uaItem->stat = ((uaItem->stat == 0) & ((int)values[i].Value.ArrayType == uaItem->isArray)) ? 0 : 1;
+            if(debug > 0) {
+                if(uaItem->checkDataLoss()) {
+                    if ((int) uaItem->inpDataType) // OUT-Record
+                        errlogPrintf("%20s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
+                            variantTypeStrings(uaItem->itemDataType));
+                    else
+                        errlogPrintf("%20s: read may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
+                            variantTypeStrings(uaItem->itemDataType));
+                }
+                if( (uaItem->userAccLvl & 0x2) == 0 && ((int) uaItem->inpDataType))    // no write access to out record
+                    errlogPrintf("%20s: no write Access!\n",uaItem->prec->name);
+                if( !(uaItem->userAccLvl & 0x1) )                                  // no read access
+                    errlogPrintf("%20s: no read Access!\n",uaItem->prec->name);
+                if(debug > 3) errlogPrintf("%4d %15s %p\n",uaItem->itemIdx,uaItem->prec->name,uaItem);
+            }
+        }
+    }
+
+    if(false == m_pSession->isConnected() ) {
+        errlogPrintf("\nDevUaSubscription::createMonitoredItems Error: session not connected\n");
+        return OpcUa_BadInvalidState;
+    }
+
+    std::map<std::string,DevUaSubscription*>::iterator subscrIt = subscriptions.begin();
+    while(subscrIt != subscriptions.end()) {
+        status = subscrIt->second->setupSubscription();
+        if(status.isBad())
+            break;
+        subscrIt++;
+    }
+    if (status.isBad()) {
+        errlogPrintf("startSession: createMonitoredItems() failed with status %s\n", status.toString().toUtf8());
+        return 1;
+    }
+    return 0;
+}
+
+
+long DevUaSession::getBrowsePathItem(OpcUa_BrowsePath &browsePaths,std::string &ItemPath,const char nameSpaceDelim,const char pathDelimiter)
 {
     UaRelativePathElements  pathElements;
     std::vector<std::string> devpath;
@@ -283,14 +396,13 @@ long DevUaClient::getBrowsePathItem(OpcUa_BrowsePath &browsePaths,std::string &I
  * Index of vUaItemInfo has to match index of vUaNodeId to get record
  * access in DevUaSubscription::dataChange callback!
  */
-long DevUaClient::getNodes()
+long DevUaSession::getNodes()
 {
     long ret=0;
     long isIdType = 1;  /* flag to make shure consistency of itemPath types id==1 or browsepath==0. First item defines type!  */
     OpcUa_UInt32    i;
     OpcUa_UInt32    nrOfItems = vUaItemInfo.size();
     OpcUa_UInt32    nrOfBrowsePathItems=0;
-    std::vector<UaNodeId>     vReadNodeIds;
     char delim;
     char isNodeIdDelim = ',';
     char isNameSpaceDelim = ':';
@@ -307,21 +419,19 @@ long DevUaClient::getNodes()
 
     ss <<"([a-z0-9_-]+)(["<< isNodeIdDelim << isNameSpaceDelim<<"])(.*)";
     rex = ss.str();  // ="([a-z0-9_-]+)([,:])(.*)";
-    vUaNodeId.clear();
 
     // Defer initialization if server is down when the IOC boots
     if (!m_pSession->isConnected()) {
-         errlogPrintf("DevUaClient::getNodes() Session not connected - deferring initialisation\n");
+         errlogPrintf("DevUaSession::getNodes() Session not connected - deferring initialisation\n");
          initialSubscriptionOver = true;
          return 1;
     }
 
     browsePaths.create(nrOfItems);
     for(i=0;i<nrOfItems;i++) {
-        OPCUA_ItemINFO        *uaItem = vUaItemInfo[i];
+        UaItem        *uaItem = vUaItemInfo[i];
         std::string ItemPath = uaItem->ItemPath;
         int  ns;    // namespace
-        UaNodeId    tempNode;
         if (! boost::regex_match( uaItem->ItemPath, matches, rex) || (matches.size() != 4)) {
             errlogPrintf("%s getNodes() SKIP for bad link. Can't parse '%s'\n",uaItem->prec->name,ItemPath.c_str());
             ret=1;
@@ -366,19 +476,18 @@ long DevUaClient::getNodes()
                 continue;
             }
            // test identifier for number
-            OpcUa_UInt32 itemId;
+            OpcUa_UInt32 itemId;git
             char         *endptr;
 
             itemId = (OpcUa_UInt32) strtol(path.c_str(), &endptr, 10);
             if(endptr == NULL) { // numerical id
-                tempNode.setNodeId( itemId, ns);
+                uaItem->nodeId.setNodeId( itemId, ns);
             }
             else {                 // string id
-                tempNode.setNodeId(UaString(path.c_str()), ns);
+                uaItem->nodeId.setNodeId(UaString(path.c_str()), ns);
             }
-            if(debug>2) errlogPrintf("%3u %s\tNODE: '%s'\n",i,uaItem->prec->name,tempNode.toString().toUtf8());
-            vUaNodeId.push_back(tempNode);
-            vReadNodeIds.push_back(tempNode);
+            if(debug>2) errlogPrintf("%3u %s\tNODE: '%s'\n",i,uaItem->prec->name,uaItem->nodeId.toString().toUtf8());
+
         }
         else {
             errlogPrintf("%s SKIP for bad link: '%s' unknown delimiter\n",uaItem->prec->name,ItemPath.c_str());
@@ -399,40 +508,34 @@ long DevUaClient::getNodes()
 
         if(debug>=2) errlogPrintf("translateBrowsePathsToNodeIds stat=%d (%s). nrOfItems:%d\n",status.statusCode(),status.toString().toUtf8(),browsePathResults.length());
         for(i=0; i<browsePathResults.length(); i++) {
-            UaNodeId tempNode;
+            UaItem *uaItem = vUaItemInfo[i];
+
             if ( OpcUa_IsGood(browsePathResults[i].StatusCode) ) {
-                tempNode = UaNodeId(browsePathResults[i].Targets[0].TargetId.NodeId);
-                vUaNodeId.push_back(tempNode);
+                uaItem->nodeId = UaNodeId(browsePathResults[i].Targets[0].TargetId.NodeId);
             }
             else {
-                tempNode = UaNodeId();
-                vUaNodeId.push_back(tempNode);
+                uaItem->nodeId = UaNodeId();
             }
-            if(debug>=2) errlogPrintf("Node: idx=%d node=%s\n",i,tempNode.toString().toUtf8());
+            if(debug>=2) errlogPrintf("Node: idx=%d node=%s\n",i,uaItem->nodeId.toString().toUtf8());
         }
 
     }
     return ret;
 }
 
-UaStatus DevUaClient::createMonitoredItems()
-{
-    return m_pDevUaSubscription->createMonitoredItems(vUaNodeId,&vUaItemInfo);
-}
-
-
-UaStatus DevUaClient::writeFunc(OPCUA_ItemINFO *uaItem, UaVariant &tempValue)
+UaStatus DevUaSession::writeFunc(UaItem *uaItem, UaVariant &tempValue)
 {
     ServiceSettings     serviceSettings;    // Use default settings
     UaWriteValues       nodesToWrite;       // Array of nodes to write
     UaStatusCodeArray   results;            // Returns an array of status codes
     UaDiagnosticInfos   diagnosticInfos;    // Returns an array of diagnostic info
 
+    if (!isConnected()) return 1;
     nodesToWrite.create(1);
     if(uaItem->stat != 0)                          // if connected
         return 0x80000000;
 
-    UaNodeId tempNode(vUaNodeId[uaItem->itemIdx]);
+    UaNodeId tempNode = uaItem->nodeId;
     tempNode.copyTo(&nodesToWrite[0].NodeId);
     nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
     tempValue.copyTo(&nodesToWrite[0].Value.Value);
@@ -445,11 +548,11 @@ UaStatus DevUaClient::writeFunc(OPCUA_ItemINFO *uaItem, UaVariant &tempValue)
     return m_pSession->beginWrite(serviceSettings,nodesToWrite,transactionId);
 }
 
-void DevUaClient::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& result,const UaStatusCodeArray& results,const UaDiagnosticInfos& diagnosticInfos)
+void DevUaSession::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& result,const UaStatusCodeArray& results,const UaDiagnosticInfos& diagnosticInfos)
 {
     char timeBuffer[30];
     OpcUa_UInt32 i;
-    OPCUA_ItemINFO *uaItem = vUaItemInfo[transactionId];
+    UaItem *uaItem = vUaItemInfo[transactionId];
 
     if(result.isBad() ) {
         errlogPrintf("writeComplete failed! result: %#8x '%s'",UaStatusCode(result).statusCode(),result.toString().toUtf8());
@@ -471,23 +574,24 @@ void DevUaClient::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& resu
     callbackRequest(&(uaItem->callback));
 }
 
-UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSettings,UaDiagnosticInfos &diagnosticInfos, int attribute)
+UaStatus DevUaSession::readFunc(UaDataValues &values,ServiceSettings &serviceSettings,UaDiagnosticInfos &diagnosticInfos, int attribute)
 {
     UaStatus          result;
     UaReadValueIds nodeToRead;
     OpcUa_UInt32        i,j;
 
-    if(debug>=2) errlogPrintf("CALL DevUaClient::readFunc()\n");
-    nodeToRead.create(pMyClient->vUaNodeId.size());
-    for (i=0,j=0; i <pMyClient->vUaNodeId.size(); i++ )
+    if(debug>=2) errlogPrintf("CALL DevUaSession::readFunc()\n");
+    nodeToRead.create(vUaItemInfo.size());
+    for (i=0,j=0; i <vUaItemInfo.size(); i++ )
     {
-        if ( !vUaNodeId[i].isNull() ) {
+         UaItem *uaItem = vUaItemInfo[i];
+         if ( !(uaItem->nodeId).isNull() ) {
             nodeToRead[j].AttributeId = attribute;
-            (pMyClient->vUaNodeId[i]).copyTo(&(nodeToRead[j].NodeId)) ;
+             (uaItem->nodeId).copyTo(&(nodeToRead[j].NodeId)) ;
             j++;
         }
         else if (debug){
-            errlogPrintf("%s DevUaClient::readValues: Skip illegal node: \n",vUaItemInfo[i]->prec->name);
+            errlogPrintf("%s DevUaSession::readValues: Skip illegal node: \n",vUaItemInfo[i]->prec->name);
         }
     }
     nodeToRead.resize(j);
@@ -499,7 +603,7 @@ UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSett
         values,
         diagnosticInfos);
     if(result.isBad() && debug) {
-        errlogPrintf("FAILED: DevUaClient::readFunc()\n");
+        errlogPrintf("FAILED: DevUaSession::readFunc()\n");
         if(diagnosticInfos.noOfStringTable() > 0) {
             for(unsigned int i=0;i<diagnosticInfos.noOfStringTable();i++)
                 errlogPrintf("%s",UaString(diagnosticInfos.stringTableAt(i)).toUtf8());
@@ -508,7 +612,108 @@ UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSett
     return result;
 }
 
-void DevUaClient::itemStat(int verb)
+DevUaSession* DevUaSession::getSession(std::string &serverTag)
+{
+    SessionIterator it = DevUaSession::sessions.find(serverTag);
+    if(it == DevUaSession::sessions.end()) {
+        errlogPrintf("Error: Server tag '%s' not defined\n",serverTag.c_str());
+        return NULL;
+    }
+    return it->second;
+}
+
+// The tag my be a session or a subscription tag
+DevUaSession* DevUaSession::addUaItem(std::string &tag,UaItem *uaItem)
+{
+    DevUaSession* pSession = NULL;
+
+    printf("%s: item of %s\n",uaItem->prec->name,tag.c_str());
+    SessionIterator it = DevUaSession::sessions.find(tag);
+    if(it == DevUaSession::sessions.end()) {
+        printf("no session tag\n");
+        SessionIterator it = DevUaSession::subscr2session.find(tag);
+        if(it != DevUaSession::subscr2session.end()) {  // is a subscription tag
+            pSession = it->second;
+            std::map<std::string,DevUaSubscription*>::iterator it;
+            it = pSession->subscriptions.find(tag);
+            if(it != pSession->subscriptions.end()) {
+                (it->second)->addMonitoredItem(uaItem);
+            }
+            else {
+                errlogPrintf("Error PV '%s' on Session '%s': Subscription tag '%s' not defined\n",uaItem->getPv(),pSession->tag.c_str(),tag.c_str());
+            }
+        }
+        else {
+            errlogPrintf("Error: Server tag '%s' not defined\n",pSession->tag.c_str());
+        }
+    }
+    else {  // is a session tag, means direct access
+printf("%s: unsubscribed item of %s\n",uaItem->prec->name,pSession->tag.c_str());
+        pSession = it->second;
+        pSession->unsubscribedItems.push_back(uaItem);
+    }
+
+    if(pSession != NULL) {
+        uaItem->itemIdx = pSession->vUaItemInfo.size();
+        (pSession->vUaItemInfo).push_back(uaItem);
+        uaItem->pSession = pSession;
+    }
+    return pSession;
+
+}
+
+void DevUaSession::opcuaSetDebug(int verbose)
+{
+    SessionIterator it = DevUaSession::sessions.begin();
+    while(it != DevUaSession::sessions.end()) {
+        DevUaSession* pSession = it->second;
+        pSession->setDebug(verbose);
+        it++;
+    }
+    return;
+}
+
+void DevUaSession::opcuaStat(int verbose)
+{
+    SessionIterator it = DevUaSession::sessions.begin();
+    while(it != DevUaSession::sessions.end()) {
+        DevUaSession* pSession = it->second;
+        errlogPrintf("Session: '%s'\n",pSession->getTag());
+        pSession->itemStat(verbose);
+        it++;
+        errlogPrintf("    Subsriptions %lu:\n",pSession->subscriptions.size());
+        std::map<std::string,DevUaSubscription*>::iterator subIt = pSession->subscriptions.begin();
+        while(subIt != pSession->subscriptions.end()) {
+            errlogPrintf("\t%s\n",subIt->first.c_str());
+            subIt++;
+        }
+    }
+    return;
+}
+
+int DevUaSession::opcuaClose(int debug)
+{
+    UaStatus status;
+    if(debug) errlogPrintf("opcUa_close()\n\tunsubscribe\n");
+
+    SessionIterator it = DevUaSession::sessions.begin();
+    while(it != DevUaSession::sessions.end()){
+        DevUaSession* pSession = it->second;
+        status = pSession->unsubscribe();
+        if(debug) errlogPrintf("\tdisconnect\n");
+        status = pSession->disconnect();
+
+        delete pSession;
+        pSession = NULL;
+        it++;
+    }
+
+    if(debug) errlogPrintf("\tcleanup\n");
+    UaPlatformLayer::cleanup();
+    return 0;
+}
+
+void DevUaSession::itemStat(int verb)
 {
     errlogPrintf("OpcUa driver: Connected items: %lu\n", (unsigned long)vUaItemInfo.size());
 
@@ -518,30 +723,38 @@ void DevUaClient::itemStat(int verb)
     // For new cases set default to next case, and new on to default, for verb >= maxCase
     switch(verb){
     case 1: errlogPrintf("Signals with connection status BAD only:\n");
-    case 2: errlogPrintf("idx record Name           epics Type         opcUa Type      Stat NS:PATH\n");
+    case 2: errlogPrintf("idx record Name          Tag        epics Type         opcUa Type      Stat NS:PATH\n");
             break;
-    default:errlogPrintf("idx record Name           epics Type         opcUa Type      Stat Sampl QSiz Drop NS:PATH\n");
+    default:errlogPrintf("idx record Name          Tag        epics Type         opcUa Type      Stat Sampl QSiz Drop NS:PATH\n");
     }
 
     for (unsigned int i=0; i< vUaItemInfo.size(); i++) {
-        OPCUA_ItemINFO* uaItem = vUaItemInfo[i];
+        UaItem* uaItem = vUaItemInfo[i];
         switch(verb){
         case 1: if(uaItem->stat == 0)  // only the bad
                 break;
-        case 2: errlogPrintf("%3d %-20s %2d,%-15s %2d:%-15s %#8x '%s' %s\n",
-                    uaItem->itemIdx,uaItem->prec->name,
-                    uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
+        case 2: errlogPrintf("%3d %-20s '%-10s' %2d,%-15s %2d:%-15s %#8x '%s' %s\n",
+                             uaItem->itemIdx,uaItem->prec->name, uaItem->tag.c_str(),
+                             uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
                     uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
                     UaStatusCode(uaItem->stat).statusCode(),UaStatus(uaItem->stat).toString().toUtf8(),uaItem->ItemPath );
-                break;
-        default:errlogPrintf("%3d %-20s %2d,%-15s %2d:%-15s %#8x '%s' %5g %4u %4s %s\n",
-                    uaItem->itemIdx,uaItem->prec->name,
-                    uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
+            break;
+        default:errlogPrintf("%3d %-20s '%s' %2d,%-15s %2d:%-15s %#8x '%s' %5g %4u %4s %s\n",
+                             uaItem->itemIdx,uaItem->prec->name,uaItem->tag.c_str(),
+                             uaItem->recDataType,epicsTypeNames[uaItem->recDataType],
                     uaItem->itemDataType,variantTypeStrings(uaItem->itemDataType),
                     UaStatusCode(uaItem->stat).statusCode(),UaStatus(uaItem->stat).toString().toUtf8(), uaItem->samplingInterval,
                     uaItem->queueSize,( uaItem->discardOldest ? "old" : "new" ), uaItem->ItemPath );
         }
-
     }
+
 }
 
+void DevUaSession::startAllSessions(void){
+    SessionIterator it = DevUaSession::sessions.begin();
+    while(it != DevUaSession::sessions.end()){
+        DevUaSession* pSession = it->second;
+        pSession->startSession();
+        it++;
+    }
+}

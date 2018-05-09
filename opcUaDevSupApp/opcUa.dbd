@@ -16,9 +16,9 @@ device(stringout,  INST_IO, devstringoutOpcUa,  "OPCUA")
 device(waveform,   INST_IO, devwaveformOpcUa,  "OPCUA")
 
 function(drvOpcuaSetup)
+function(drvOpcuaSubscription)
 function(opcuaDebug)
-function(OpcUaSetupMonitors)
-#function(OpcUaWriteItems)
+function(opcuaStat)
 function(opcUa_io_report)
 
 # Now part of class DevUaClient variable(drvOpcua_AutoConnectInterval, double)

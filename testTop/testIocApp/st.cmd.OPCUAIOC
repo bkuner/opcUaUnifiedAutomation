@@ -1,21 +1,30 @@
-#!../bin/linux-x86_64/OPCUAIOC
-
-cd ..
+#!./bin/linux-x86_64/OPCUAIOC
+##!../bin/linux-x86_64/OPCUAIOC
+#cd ..
 epicsEnvSet IOC OPCUAIOC
 dbLoadDatabase "dbd/OPCUAIOC.dbd",0,0
 ${IOC}_registerRecordDeviceDriver pdbbase
 
 # local freeOpcUaEpicsServer/bin/linux-x86_64/server
-drvOpcuaSetup("opc.tcp://localhost:4841","","",0)
+#drvOpcuaSetup("opc.tcp://192.168.101.141:4840","","",1,"SILVIO")
+drvOpcuaSetup("opc.tcp://localhost:4841","","",1,"FREE")
+
+drvOpcuaSubscription("FREE_1","FREE","")
+drvOpcuaSubscription("FREE_2","FREE","")
+
+#drvOpcuaSubscription("SILVIO_1","SILVIO","")
+opcuaStat(1)
+
+
 dbLoadRecords("db/freeopcuaTEST.db")
-dbLoadRecords("db/testServer.db")
+#dbLoadRecords("db/silvioTest.db")
 
 setIocLogDisable 1
 
 # See init warnings
-opcuaDebug(1)
+opcuaDebug(4)
 iocInit
 
 # Be quiet
-opcuaDebug(0)
-opcuaStat(0)
+#opcuaDebug(0)
+opcuaStat(2)

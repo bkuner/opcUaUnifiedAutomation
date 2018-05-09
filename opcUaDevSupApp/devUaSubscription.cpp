@@ -17,7 +17,7 @@
 \*************************************************************************/
 
 #include "drvOpcUa.h"
-#include "devUaClient.h"
+#include "devUaSession.h"
 #include "devUaSubscription.h"
 #include <epicsExport.h>
 
@@ -63,7 +63,7 @@ void DevUaSubscription::dataChange(
     for ( i=0; i<dataNotifications.length(); i++ )
     {
         struct dataChangeError {};
-        OPCUA_ItemINFO* uaItem = m_vectorUaItemInfo->at(dataNotifications[i].ClientHandle);
+        UaItem* uaItem = uaItems.at(dataNotifications[i].ClientHandle);
 
         if(uaItem->debug >= 2)
             errlogPrintf("dataChange  %s %s\n",timeBuf,uaItem->prec->name);
@@ -81,9 +81,9 @@ void DevUaSubscription::dataChange(
             uaItem->stat = (uaItem->varVal.isArray() == uaItem->isArray) ? 0 : 1;
 
             if(uaItem->inpDataType) {                       // is OUT Record
-                if(!uaItem->flagRdbkOff) {                   // readback switched off?
+                if(!uaItem->flagRdbkOff && !uaItem->prec->pact) { // readback switched off and record not pact
                     if(uaItem->debug >= 2) errlogPrintf("\tcallbackRequest\n");
-                    callbackRequest(&(uaItem->callback));   // out-records are SCAN="passive" so scanIoRequest doesn't work
+                    callbackRequest(&(uaItem->callback));
                 }
             }
             else {                                          // is IN Record
@@ -173,48 +173,41 @@ UaStatus DevUaSubscription::deleteSubscription()
     return result;
 }
 
-UaStatus DevUaSubscription::createMonitoredItems(std::vector<UaNodeId> &vUaNodeId,std::vector<OPCUA_ItemINFO *> *uaItemInfo)
+void DevUaSubscription::addMonitoredItem(UaItem *uaItem)
 {
-    if(debug) errlogPrintf("DevUaSubscription::createMonitoredItems\n");
-    if( uaItemInfo->size() == vUaNodeId.size())
-        m_vectorUaItemInfo = uaItemInfo;
-    else
-    {
-        errlogPrintf("\nDevUaSubscription::createMonitoredItems Error: Nr of uaItems %i != nr of browsepathItems %i\n",(int)uaItemInfo->size(),(int)vUaNodeId.size());
-        return OpcUa_BadInvalidState;
-    }
-    if(false == m_pSession->isConnected() ) {
-        errlogPrintf("\nDevUaSubscription::createMonitoredItems Error: session not connected\n");
-        return OpcUa_BadInvalidState;
+    uaItems.push_back(uaItem);
+}
 
-    }
+UaStatus DevUaSubscription::setupSubscription()
+{
+    if(debug) errlogPrintf("DevUaSubscription::setupSubscription(): %lu items\n",uaItems.size());
 
     UaStatus result;
     OpcUa_UInt32 i;
     ServiceSettings serviceSettings;
     UaMonitoredItemCreateRequests itemsToCreate;
     UaMonitoredItemCreateResults createResults;
-    OPCUA_ItemINFO *info;
+    UaItem *uaItem;
     // Configure one item to add to subscription
     // We monitor the value of the ServerStatus -> CurrentTime
-    itemsToCreate.create(vUaNodeId.size());
-    for(i=0; i<vUaNodeId.size(); i++) {
-        info = uaItemInfo->at(i);
-        if ( !vUaNodeId[i].isNull() ) {
-            UaNodeId tempNode(vUaNodeId[i]);
+    itemsToCreate.create(uaItems.size());
+    for(i=0; i<uaItems.size(); i++) {
+        uaItem = uaItems.at(i);
+printf("\t%s: node: %s\n",uaItem->prec->name,uaItem->nodeId.toString().toUtf8());
+        if ( !uaItem->nodeId.isNull() ) {
             itemsToCreate[i].ItemToMonitor.AttributeId = OpcUa_Attributes_Value;
-            tempNode.copyTo(&(itemsToCreate[i].ItemToMonitor.NodeId));
-            itemsToCreate[i].RequestedParameters.ClientHandle = i;
-            itemsToCreate[i].RequestedParameters.SamplingInterval = info->samplingInterval;
-            itemsToCreate[i].RequestedParameters.QueueSize = info->queueSize;
-            itemsToCreate[i].RequestedParameters.DiscardOldest = (info->discardOldest ? OpcUa_True : OpcUa_False);
+            uaItem->nodeId.copyTo(&(itemsToCreate[i].ItemToMonitor.NodeId));
+            itemsToCreate[i].RequestedParameters.ClientHandle = uaItem->itemIdx;
+            itemsToCreate[i].RequestedParameters.SamplingInterval = uaItem->samplingInterval;
+            itemsToCreate[i].RequestedParameters.QueueSize = uaItem->queueSize;
+            itemsToCreate[i].RequestedParameters.DiscardOldest = (uaItem->discardOldest ? OpcUa_True : OpcUa_False);
             itemsToCreate[i].MonitoringMode = OpcUa_MonitoringMode_Reporting;
         }
         else {
-            errlogPrintf("%s Skip illegal node: %s\n",info->prec->name,info->ItemPath);
+            errlogPrintf("%s Skip illegal node: %s\n",uaItem->prec->name,uaItem->ItemPath);
         }
     }
-    if(debug) errlogPrintf("\nAdd monitored items to subscription ...\n");
+    if(debug) errlogPrintf("\nAdd monitored items to subscription %lu\n",uaItems.size());
     result = m_pSubscription->createMonitoredItems(
         serviceSettings,
         OpcUa_TimestampsToReturn_Both,
@@ -233,7 +226,7 @@ UaStatus DevUaSubscription::createMonitoredItems(std::vector<UaNodeId> &vUaNodeI
             else
             {
                 if(debug) {
-                    OPCUA_ItemINFO* uaItem = m_vectorUaItemInfo->at(i);
+                    UaItem* uaItem = uaItems.at(i);
                     errlogPrintf("%4d %s DevUaSubscription::createMonitoredItems failed for node: %s - Status %s\n",
                         i, uaItem->prec->name,
                         UaNodeId(itemsToCreate[i].ItemToMonitor.NodeId).toXmlString().toUtf8(),

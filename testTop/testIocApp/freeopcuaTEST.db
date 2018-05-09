@@ -4,7 +4,7 @@ record(ao,"REC:setProp"){
 #        field(PINI,"YES")
         field(DTYP,"OPCUA")
         field(DISS,"INVALID")
-        field(OUT,"@2:NewObject.MyProperty")
+        field(OUT,"@FREE_1;ns=2;s=NewObject.MyProperty")
         field(LOPR,"-100")
         field(HOPR,"100")
         
@@ -15,7 +15,7 @@ record(longout,"REC:setPropINT"){
 #        field(PINI,"YES")
         field(DTYP,"OPCUA")
         field(DISS,"INVALID")
-        field(OUT,"@2:NewObject.MyProperty")
+        field(OUT,"@FREE_1;ns=2;s=NewObject.MyProperty")
         field(LOPR,"-100")
         field(HOPR,"100")
         
@@ -27,7 +27,7 @@ record(ai,"REC:rdProp"){
         field(PINI,"YES")
         field(DTYP,"OPCUA")
         field(DISS,"INVALID")
-        field(INP,"@2:NewObject.MyProperty")
+        field(INP,"@FREE_1;ns=2;s=NewObject.MyProperty")
 }
 record(ai,"REC:rdVariable"){
 #        field(SCAN,"1 second")
@@ -36,7 +36,7 @@ record(ai,"REC:rdVariable"){
         field(TSE, "-2")
         field(DTYP,"OPCUA")
         field(DISS,"INVALID")
-        field(INP,"@2:NewObject.MyVariable")
+        field(INP,"@FREE_1;ns=2;s=NewObject.MyVariable")
         field(LINR,"SLOPE")
         field(ASLO,"0.01")
         field(AOFF,"0")
@@ -48,7 +48,7 @@ record(longin,"REC:rdVariableINT"){
         field(TSE, "-2")
         field(DTYP,"OPCUA")
         field(DISS,"INVALID")
-        field(INP,"@2:NewObject.MyVariable")
+        field(INP,"@FREE_1;ns=2;s=NewObject.MyVariable")
 }
 record(mbbiDirect,"REC:rdBit23"){
 #        field(SCAN,"5 second")
@@ -57,7 +57,7 @@ record(mbbiDirect,"REC:rdBit23"){
         field(TSE, "-2")
         field(DTYP,"OPCUA")
         field(DISS,"INVALID")
-        field(INP,"@2:NewObject.MyVariable")
+        field(INP,"@FREE_2;ns=2;s=NewObject.MyVariable")
         field(NOBT,"2")
         field(SHFT,"2")
 }
@@ -68,7 +68,7 @@ record(mbbi,"REC:stBit23"){
         field(TSE, "-2")
         field(DTYP,"OPCUA")
         field(DISS,"INVALID")
-        field(INP,"@2:NewObject.MyVariable")
+        field(INP,"@FREE_2;ns=2;s=NewObject.MyVariable")
         field(NOBT,"2")
         field(SHFT,"1")
         field(ZRVL,"0")
@@ -87,7 +87,7 @@ record(stringin,"REC:rdString"){
         field(VAL ,"YES I Am")
 #        field(SCAN,"I/O Intr")
         field(DISS,"INVALID")
-        field(INP,"@2:NewObject.MyStringVar")
+        field(INP,"@FREE_1;ns=2;s=NewObject.MyStringVar")
 }
 record(waveform,"REC:rdIntArr"){
         field(DTYP,"OPCUA")
@@ -95,5 +95,5 @@ record(waveform,"REC:rdIntArr"){
         field(FTVL,"LONG")
         field(SCAN,"I/O Intr")
         field(DISS,"INVALID")
-        field(INP,"@2:NewObject.MyArrayVar")
+        field(INP,"@FREE_1;ns=2;s=NewObject.MyArrayVar")
 }

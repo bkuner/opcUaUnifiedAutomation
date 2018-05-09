@@ -19,7 +19,7 @@
 #define DEVUASUBSCRIPTION_H
 
 #include "drvOpcUa.h"
-#include "devUaClient.h"
+#include "devUaSession.h"
 #include <uasubscription.h>
 
 class DevUaSubscription :public UaClientSdk::UaSubscriptionCallback
@@ -42,12 +42,17 @@ public:
 
     UaStatus createSubscription(UaClientSdk::UaSession *pSession);
     UaStatus deleteSubscription();
-    UaStatus createMonitoredItems(std::vector<UaNodeId> &vUaNodeId,std::vector<OPCUA_ItemINFO *> *m_vectorUaItemInfo);
 
-    int debug;              // debug output independant from single channels
+    void addMonitoredItem(UaItem *uaItem);
+    UaStatus setupSubscription();
+
+    const char*  getTag() {return tag.c_str();}
+
 private:
+    int debug;              // debug output independant from single channels
     UaClientSdk::UaSession*                  m_pSession;
     UaClientSdk::UaSubscription*             m_pSubscription;
-    std::vector<OPCUA_ItemINFO *> *m_vectorUaItemInfo;
+    std::vector<UaItem *> uaItems;
+    std::string tag;
 };
 #endif // DEVUASUBSCRIPTION_H
