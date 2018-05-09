@@ -102,7 +102,7 @@ void RunServer(int wait,int debug)
     default:dataVal.Status = StatusCode::Good;
     }
     tstInt.SetAttribute(AttributeId::Value,dataVal);
-    std::cout<<"tstInt:"<<val<<" stat:"<<(unsigned long)dataVal.Status<<std::endl;
+//    std::cout<<"tstInt:"<<val<<" stat:"<<(unsigned long)dataVal.Status<<std::endl;
 // END DOESN'T WORK!! Why ever!!
     
     std::this_thread::sleep_for(std::chrono::milliseconds(wait));

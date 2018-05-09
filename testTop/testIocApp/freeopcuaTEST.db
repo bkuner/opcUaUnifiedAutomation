@@ -38,8 +38,8 @@ record(ai,"REC:rdVariable"){
         field(DISS,"INVALID")
         field(INP,"@2:NewObject.MyVariable")
         field(LINR,"SLOPE")
-        field(ASLO,"0.01")
-        field(AOFF,"0")
+        field(ESLO,"0.1")
+        field(EOFF,"-4")
 }
 record(longin,"REC:rdVariableINT"){
 #        field(SCAN,"5 second")
