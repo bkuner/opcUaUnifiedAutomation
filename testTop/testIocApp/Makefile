@@ -32,7 +32,7 @@ STCMD_INSTALLS = $(IOCS:%=$(INSTALL_BOOT)/ioc%/st.cmd)
 
 PROD_HOST += testServer
 
-FREEOPCUA =/home/kuner/Dokumente.BESSY/projects/opcProjekt/FREEOPCUA/freeopcua
+
 testServer_CPPFLAGS += -std=c++11 -ggdb
 testServer_CXXFLAGS += -pthread -fomit-frame-pointer
 testServer_SYS_LIBS += dl pthread xml2 boost_system 
