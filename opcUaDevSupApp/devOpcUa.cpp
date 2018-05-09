@@ -688,10 +688,10 @@ long write_ao (struct aoRecord* prec)
     long ret=0;
     UaVariant var;
     double value;
-
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     if (uaItem->flagIsRdbk) {
+        if(DEBUG_LEVEL>2) errlogPrintf("write_ao READ flagIsRdbk:%d\n",uaItem->flagIsRdbk);
         if(uaItem->varVal.toDouble(value)) {
             if(uaItem->debug) errlogPrintf("%s: conversion toDouble OutOfRange\n",uaItem->prec->name);
             ret = 1;
@@ -725,6 +725,7 @@ long write_ao (struct aoRecord* prec)
         }
     }
     else {
+        if(DEBUG_LEVEL>2)  errlogPrintf("write_ao WRITE\n");
         value = prec->oval;
 
         // When OROC is set each process the record by dataChange callback is harmfull:
@@ -756,6 +757,7 @@ long write_ao (struct aoRecord* prec)
         if (prec->aslo != 0.0) value /= prec->aslo;
 
         ret = toOpcuaTypeVariant(uaItem,var,value);
+        if(DEBUG_LEVEL>2)  errlogPrintf("write_ao call write\n");
         if( !ret)
             ret = write((dbCommon*)prec,var);
     }
@@ -1072,7 +1074,7 @@ static long write(dbCommon *prec,UaVariant &var) {
     if(!prec->pact) {
         prec->pact = TRUE;
         try {
-            if(DEBUG_LEVEL >= 2) errlogPrintf("write()\t\tflagIsRdbk=%i\n",uaItem->flagIsRdbk);
+            if(DEBUG_LEVEL > 2) errlogPrintf("%s: write BEGIN\n",prec->name);
             if( ! uaItem->flagIsRdbk ) {
                 epicsMutexLock(uaItem->flagLock);
                 ret = uaItem->write(var);   // write on a read only node results NOT to isBad(). Can't be checked here!!
@@ -1086,6 +1088,7 @@ static long write(dbCommon *prec,UaVariant &var) {
     }
     else {
         if(uaItem->stat) ret = 1; // 1 if writeComplete failed
+        if(DEBUG_LEVEL > 2) errlogPrintf("%s: write DONE stat:%d\n",prec->name,uaItem->stat);
     }
 
     return ret;
