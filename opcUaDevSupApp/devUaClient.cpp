@@ -271,6 +271,56 @@ long DevUaClient::getBrowsePathItem(OpcUa_BrowsePath &browsePaths,std::string &I
     return 0;
 }
 
+// Parse the input link like: ns=<NS_IDX>;<IDTYPE>=<IDENTIFIER>
+bool parseLink(char *lnk,UaNodeId &nodeId)
+{
+//    ItemPath = lnk;
+    boost::regex rex;
+    boost::cmatch matches;
+    rex = std::string("([\\d\\w]+);\\s*ns=(\\d+);(\\w)=(.*)");
+    char type;
+    std::string sId;
+    OpcUa_UInt16 ns=0;
+    if (! boost::regex_match( lnk, matches, rex) || (matches.size() != 5)) {
+        errlogPrintf("parseLink() SKIP for bad link '%s'\n",lnk);
+        return false;
+    }
+    std::string tag  = matches[1];
+
+    try {
+        ns = boost::lexical_cast<OpcUa_UInt32>(matches[2]);
+    }
+    catch (const boost::bad_lexical_cast &exc) {
+        errlogPrintf("parseLink(%s) SKIP for bad namespace\n",lnk);
+        return false;
+    }
+    type = ((std::string)matches[3]).c_str()[0];
+    switch(type) {
+    case 's':
+        sId = matches[4];
+        nodeId = UaNodeId(sId.c_str(),ns);
+        break;
+    case 'i':
+        OpcUa_UInt32 iId;
+        try {
+            iId = boost::lexical_cast<OpcUa_UInt32>(matches[4]);
+        }
+        catch (const boost::bad_lexical_cast &exc) {
+            errlogPrintf("parseLink(%s) SKIP for bad integer id\n",lnk);
+            return false;
+        }
+        nodeId = UaNodeId(iId,ns);
+        break;
+    default:
+        errlogPrintf("parseLink(%s) SKIP id-type not supported\n",lnk);
+        return false;
+    }
+    errlogPrintf("parseLink(%s) OK: tag:'%s' node:'%s'\n",lnk, tag.c_str(),nodeId.toFullString().toUtf8());
+
+    return true;
+}
+
+
 /* clear vUaNodeId and recreate all nodes from uaItem->ItemPath data.
  *    vUaItemInfo:  input link is either
  *    NODE_ID    or      BROWSEPATH
@@ -290,7 +340,6 @@ long DevUaClient::getNodes()
     OpcUa_UInt32    i;
     OpcUa_UInt32    nrOfItems = vUaItemInfo.size();
     OpcUa_UInt32    nrOfBrowsePathItems=0;
-    std::vector<UaNodeId>     vReadNodeIds;
     char delim;
     char isNodeIdDelim = ',';
     char isNameSpaceDelim = ':';
@@ -323,8 +372,13 @@ long DevUaClient::getNodes()
         int  ns;    // namespace
         UaNodeId    tempNode;
         if (! boost::regex_match( uaItem->ItemPath, matches, rex) || (matches.size() != 4)) {
-            errlogPrintf("%s getNodes() SKIP for bad link. Can't parse '%s'\n",uaItem->prec->name,ItemPath.c_str());
-            ret=1;
+            if(parseLink(uaItem->ItemPath,tempNode) == true) {
+                vUaNodeId.push_back(tempNode);
+            }
+            else {
+                errlogPrintf("%s getNodes() SKIP for bad link. Can't parse '%s'\n",uaItem->prec->name,ItemPath.c_str());
+                ret=1;
+            }
             continue;
         }
         delim = ((std::string)matches[2]).c_str()[0];
@@ -378,7 +432,6 @@ long DevUaClient::getNodes()
             }
             if(debug>2) errlogPrintf("%3u %s\tNODE: '%s'\n",i,uaItem->prec->name,tempNode.toString().toUtf8());
             vUaNodeId.push_back(tempNode);
-            vReadNodeIds.push_back(tempNode);
         }
         else {
             errlogPrintf("%s SKIP for bad link: '%s' unknown delimiter\n",uaItem->prec->name,ItemPath.c_str());
