@@ -9,16 +9,7 @@ LIBRARY_HOST += opcUa
 opcUa_SRCS = devOpcUa.cpp drvOpcUa.cpp devUaClient.cpp devUaSubscription.cpp
 INC += drvOpcUa.h
 
-UASDK_LIBS = uabase uaclient uapki uastack xmlparser
 USR_SYS_LIBS += boost_regex
-
-USR_INCLUDES += $(foreach module, $(UASDK_LIBS), -I$(UASDK)/include/$(module))
-
-USR_INCLUDES_WIN32 += -I$(BOOST)
-
-ifeq ($(UASDK_DEPLOY_MODE),SYSTEM)
-USR_SYS_LIBS += $(UASDK_LIBS)
-endif
 
 ifeq ($(UASDK_DEPLOY_MODE),PROVIDED)
 define UA_template
@@ -27,6 +18,7 @@ define UA_template
 endef
 $(foreach lib, $(UASDK_LIBS), $(eval $(call UA_template,$(lib))))
 endif
+
 
 ifeq ($(UASDK_DEPLOY_MODE),INSTALL)
 EXTLIB_INSTALLS += $(addprefix $(INSTALL_LIB)/, \

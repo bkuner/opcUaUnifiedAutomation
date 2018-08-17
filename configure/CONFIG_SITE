@@ -1,49 +1,53 @@
 # CONFIG_SITE
 
-# Make any application-specific changes to the EPICS build
-#   configuration variables in this file.
+####################### CONFIG_SITE.local #######################
 #
-# Host/target specific settings can be specified in files named
-#   CONFIG_SITE.$(EPICS_HOST_ARCH).Common
-#   CONFIG_SITE.Common.$(T_A)
-#   CONFIG_SITE.$(EPICS_HOST_ARCH).$(T_A)
-
-# CHECK_RELEASE controls the consistency checking of the support
-#   applications pointed to by the RELEASE* files.
-# Normally CHECK_RELEASE should be set to YES.
-# Set CHECK_RELEASE to NO to disable checking completely.
-# Set CHECK_RELEASE to WARN to perform consistency checking but
-#   continue building even if conflicts are found.
-CHECK_RELEASE = YES
-
-# Set this when you only want to compile this application
-#   for a subset of the cross-compiled target architectures
-#   that Base is built for.
-#CROSS_COMPILER_TARGET_ARCHS = vxWorks-ppc32
-
-# To install files into a location other than $(TOP) define
-#   INSTALL_LOCATION here.
-#INSTALL_LOCATION=</absolute/path/to/install/top>
-
-# Set this when the IOC and build host use different paths
-#   to the install location. This may be needed to boot from
-#   a Microsoft FTP server say, or on some NFS configurations.
-#IOCS_APPL_TOP = </IOC's/absolute/path/to/install/top>
-
-# For application debugging purposes, override the HOST_OPT and/
-#   or CROSS_OPT settings from base/configure/CONFIG_SITE
-#HOST_OPT = NO
-#CROSS_OPT = NO
-
-# Path to the Unified Automation OPC UA C++ SDK
-#UASDK = $(TOP)/../../uasdkcppclient-v1.5.3-346/sdk
-
-# How the Unified Automation SDK shared libraries are deployed
-#   SYSTEM = shared libs are in a system location
-#   PROVIDED = shared libs are in $(UASDK_DIR)
-#   INSTALL = shared libs are installed (copied) into this module
-UASDK_DEPLOY_MODE = PROVIDED
-UASDK_DIR = $(UASDK)/lib
+# This should be adapted and activated or used as an example for an CONFIG_SITE.local
+#
+#     # Path to the Unified Automation OPC UA C++ SDK 
+#     # Set the path that make has chance to find out the version number: -v1.n (see below: findstring...)
+#
+#     #UASDK=/projects/ctl/kuner/OPC_UA/uasdkcppclient-src-debian7.7-x86_64-gcc4.7.2-v1.5.3-346/sdk
+#     #UASDK=/projects/ctl/kuner/OPC_UA/uasdkcppclient-src-debian7.7-x86_64-gcc4.7.2-v1.5.6-361/sdk
+#      UASDK=/projects/ctl/kuner/OPC_UA/uasdkcppclient-src-debian9.3-x86_64-gcc6.3.0-v1.6.1-391/sdk
+#
+#     # How the Unified Automation SDK shared libraries are deployed
+#     #   SYSTEM = shared libs are in a system location
+#     #   PROVIDED = shared libs are in $(UASDK_DIR)
+#     #   INSTALL = shared libs are installed (copied) into this module
+#     UASDK_DEPLOY_MODE = PROVIDED
+#     UASDK_DIR = $(UASDK)/lib
+#     # How the Unified Automation SDK libraries were built
+#     UASDK_USE_CRYPTO = YES
+#     UASDK_USE_XMLPARSER = YES
+#
+#     UASDK_LIBS_C   = uastack
+#     UASDK_LIBS_CPP = uabase uaclient uapki
+#
+#     ifeq ($(UASDK_USE_XMLPARSER),YES)
+#     UASDK_LIBS_CPP += xmlparser
+#     endif
+#
+#     # Include paths and libnames changed from version 1.5 to 1.6
+#     ifeq (-v1.6,$(findstring -v1.6,$(UASDK) ))
+#       USR_INCLUDES += $(foreach module, $(UASDK_LIBS_C), -I$(UASDK)/include/$(module))
+#       USR_INCLUDES += $(foreach module, $(UASDK_LIBS_CPP), -I$(UASDK)/include/$(module)cpp)
+#       UASDK_LIBS += $(UASDK_LIBS_C) $(foreach module, $(UASDK_LIBS_CPP), $(module)cpp)
+#     else
+#       ifeq (-v1.5,$(findstring -v1.5,$(UASDK) ))
+#         USR_INCLUDES += $(foreach module, $(UASDK_LIBS_C) $(UASDK_LIBS_CPP), -I$(UASDK)/include/$(module))
+#         UASDK_LIBS += $(UASDK_LIBS_C) $(UASDK_LIBS_CPP)
+#       else
+#         $(warning ERROR: Can't find supported version tag in $$UASDK=$(UASDK) )
+#       endif
+#     endif
+#
+#     USR_INCLUDES_WIN32 += -I$(BOOST)
+#
+#     ifeq ($(UASDK_DEPLOY_MODE),SYSTEM)
+#     USR_SYS_LIBS += $(UASDK_LIBS)
+#     endif
+#####################################################################
 
 # These allow developers to override the CONFIG_SITE variable
 # settings without having to modify the configure/CONFIG_SITE
