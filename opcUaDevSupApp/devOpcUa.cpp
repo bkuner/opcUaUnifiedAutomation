@@ -690,6 +690,7 @@ long write_ao (struct aoRecord* prec)
     long ret=0;
     UaVariant var;
     double value;
+
     if(uaItem->prec->tpro > 1)
         uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
     if (uaItem->flagIsRdbk) {

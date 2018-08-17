@@ -171,8 +171,8 @@ UaStatus DevUaClient::connect()
 
     // Security settings are not initialized - we connect without security for now
     SessionSecurityInfo sessionSecurityInfo;
-
-    if(debug) errlogPrintf("DevUaClient::connect() connecting to '%s'\n", url.toUtf8());
+    char buf[256];
+    if(debug) printf("%s DevUaClient::connect() connecting to '%s'\n",getTime(buf), url.toUtf8());
     result = m_pSession->connect(url, sessionConnectInfo, sessionSecurityInfo, this);
 
     if (result.isBad())
@@ -349,6 +349,7 @@ long DevUaClient::getNodes()
     ServiceSettings         serviceSettings;
     UaBrowsePathResults     browsePathResults;
     UaBrowsePaths           browsePaths;
+    char buf[256];
 
     std::ostringstream ss;
     boost::regex rex;
@@ -402,12 +403,12 @@ long DevUaClient::getNodes()
             if(!i)  // set for first element
                 isIdType = 0;
             if (isIdType != 0){
-                if(debug) errlogPrintf("%s SKIP for bad link: Illegal Browsepath link in ID links\n",uaItem->prec->name);
+                if(debug) errlogPrintf("%s %s SKIP for bad link: Illegal Browsepath link in ID links\n",getTime(buf),uaItem->prec->name);
                 ret = 1;
                 continue;
             }
            if(getBrowsePathItem( browsePaths[nrOfBrowsePathItems],ItemPath,isNameSpaceDelim,pathDelim)){  // ItemPath: 'namespace:path' may include other namespaces within the path
-                if(debug) errlogPrintf("%s SKIP for bad link: Illegal or Missing namespace in '%s'\n",uaItem->prec->name,ItemPath.c_str());
+                if(debug) errlogPrintf("%s %s SKIP for bad link: Illegal or Missing namespace in '%s'\n",getTime(buf),uaItem->prec->name,ItemPath.c_str());
                 ret = 1;
                 continue;
             }
@@ -415,7 +416,7 @@ long DevUaClient::getNodes()
         }
         else if(delim == isNodeIdDelim) {
             if (isIdType != 1){
-                if(debug) errlogPrintf("%s SKIP for bad link: Illegal ID link in Browsepath links\n",uaItem->prec->name);
+                if(debug) errlogPrintf("%s %s SKIP for bad link: Illegal ID link in Browsepath links\n",getTime(buf),uaItem->prec->name);
                 ret = 1;
                 continue;
             }
@@ -529,8 +530,9 @@ UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSett
     UaStatus          result;
     UaReadValueIds nodeToRead;
     OpcUa_UInt32        i,j;
+    char buf[256];
 
-    if(debug>=2) errlogPrintf("CALL DevUaClient::readFunc()\n");
+    if(debug>=2) errlogPrintf("%s CALL DevUaClient::readFunc()\n" ,getTime(buf));
     nodeToRead.create(pMyClient->vUaNodeId.size());
     for (i=0,j=0; i <pMyClient->vUaNodeId.size(); i++ )
     {
@@ -540,7 +542,7 @@ UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSett
             j++;
         }
         else if (debug){
-            errlogPrintf("%s DevUaClient::readValues: Skip illegal node: \n",vUaItemInfo[i]->prec->name);
+            errlogPrintf("%s %s DevUaClient::readValues: Skip illegal node: \n" ,getTime(buf),vUaItemInfo[i]->prec->name);
         }
     }
     nodeToRead.resize(j);
@@ -552,7 +554,7 @@ UaStatus DevUaClient::readFunc(UaDataValues &values,ServiceSettings &serviceSett
         values,
         diagnosticInfos);
     if(result.isBad() && debug) {
-        errlogPrintf("FAILED: DevUaClient::readFunc()\n");
+        errlogPrintf("%s FAILED: DevUaClient::readFunc()\n" ,getTime(buf));
         if(diagnosticInfos.noOfStringTable() > 0) {
             for(unsigned int i=0;i<diagnosticInfos.noOfStringTable();i++)
                 errlogPrintf("%s",UaString(diagnosticInfos.stringTableAt(i)).toUtf8());
