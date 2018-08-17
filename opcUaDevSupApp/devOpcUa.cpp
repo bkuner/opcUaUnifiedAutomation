@@ -284,8 +284,9 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
         recGblRecordError(status, prec, "devOpcUa (init_record) Bad INP/OUT link type (must be INST_IO)");
         return status;
     }
-
     uaItem =  (OPCUA_ItemINFO *) calloc(1,sizeof(OPCUA_ItemINFO));
+    memset(uaItem,0,sizeof(OPCUA_ItemINFO));
+
     if (!uaItem) {
         long status = S_db_noMemory;
         recGblRecordError(status, prec, "devOpcUa (init_record) Out of memory, calloc() failed");
@@ -294,9 +295,6 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
 
     if(strlen(plnk->value.instio.string) < ITEMPATHLEN) {
         strcpy(uaItem->ItemPath,plnk->value.instio.string);
-        if(addOPCUA_Item(uaItem)) {
-            recGblRecordError(S_dev_NoInit, prec, "drvOpcUa not initialized");
-        }
     }
     else {
         long status = S_db_badField;
@@ -328,6 +326,10 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
     }
     else {
         scanIoInit(&(uaItem->ioscanpvt));
+    }
+
+    if(addOPCUA_Item(uaItem)) {
+        recGblRecordError(S_dev_NoInit, prec, "drvOpcUa not initialized");
     }
     return 0;
 }
