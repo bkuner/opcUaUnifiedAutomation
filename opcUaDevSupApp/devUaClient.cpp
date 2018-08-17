@@ -128,7 +128,7 @@ void DevUaClient::setBadQuality()
     for(OpcUa_UInt32 bpItem=0;bpItem<vUaItemInfo.size();bpItem++) {
         OPCUA_ItemINFO *uaItem = vUaItemInfo[bpItem];
         uaItem->prec->time = now;
-        uaItem->stat = 1;
+        uaItem->stat = OpcUa_BadServerNotConnected;
         if(uaItem->inpDataType) // is OUT Record
             callbackRequest(&(uaItem->callback));
         else
@@ -481,11 +481,10 @@ UaStatus DevUaClient::writeFunc(OPCUA_ItemINFO *uaItem, UaVariant &tempValue)
     UaStatusCodeArray   results;            // Returns an array of status codes
     UaDiagnosticInfos   diagnosticInfos;    // Returns an array of diagnostic info
 
-    if (!pMyClient->isConnected()) return 1;
-    nodesToWrite.create(1);
-    if(uaItem->stat != 0)                          // if connected
-        return 0x80000000;
+    if (!pMyClient->isConnected())
+        return OpcUa_BadServerNotConnected;
 
+    nodesToWrite.create(1);
     UaNodeId tempNode(vUaNodeId[uaItem->itemIdx]);
     tempNode.copyTo(&nodesToWrite[0].NodeId);
     nodesToWrite[0].AttributeId = OpcUa_Attributes_Value;
@@ -510,7 +509,7 @@ void DevUaClient::writeComplete( OpcUa_UInt32 transactionId,const UaStatus& resu
         uaItem->stat = UaStatusCode(result).statusCode();
     }
     else {
-        uaItem->stat = 0;
+        uaItem->stat = OpcUa_Good;
         for (i=0; i<results.length(); i++ ) // length=1, we write single items
         {
             if ( !OpcUa_IsGood(results[i]) )
@@ -580,7 +579,7 @@ void DevUaClient::itemStat(int verb)
     for (unsigned int i=0; i< vUaItemInfo.size(); i++) {
         OPCUA_ItemINFO* uaItem = vUaItemInfo[i];
         switch(verb){
-        case 1: if(uaItem->stat == 0)  // only the bad
+        case 1: if(OpcUa_IsGood(uaItem->stat))  // only the bad
                 break;
         case 2: errlogPrintf("%3d %-20s %2d,%-15s %2d:%-15s %#8x '%s' %s\n",
                     uaItem->itemIdx,uaItem->prec->name,

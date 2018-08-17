@@ -78,7 +78,6 @@ void DevUaSubscription::dataChange(
                 throw dataChangeError();
             }
             uaItem->varVal = dataNotifications[i].Value.Value;
-            uaItem->stat = (uaItem->varVal.isArray() == uaItem->isArray) ? 0 : 1;
 
             if((uaItem->inpDataType)){ // is OUT Record
                 if(!uaItem->flagRdbkOff && !uaItem->prec->pact) {   // readback not switched off  and record not pact
@@ -97,7 +96,7 @@ void DevUaSubscription::dataChange(
         }
         // I'm not shure about the posibility of another exception but of the damage it could do!
         catch(...) {
-            uaItem->stat = 1;
+            uaItem->stat = OpcUa_BadUnexpectedError;
             if(debug || (uaItem->debug>= 1)) errlogPrintf("%s %s\tdataChange: unexpected exception '%s'\n",timeBuf,uaItem->prec->name,epicsTypeNames[uaItem->recDataType]);
             uaItem->debug = 4;
         }

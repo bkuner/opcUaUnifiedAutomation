@@ -306,7 +306,7 @@ long init_common (dbCommon *prec, struct link* plnk, epicsType recType, int inpT
 
     prec->dpvt = uaItem;
     uaItem->recDataType = recType;
-    uaItem->stat = 1;       // not conntcted
+    uaItem->stat = OpcUa_BadInvalidState;
     uaItem->flagRdbkOff = 0;
     uaItem->isArray = 0;    // default, set in init_record()
     uaItem->prec = prec;
@@ -1051,7 +1051,7 @@ static long read(dbCommon * prec) {
             }
             uaItem->debug = (prec->tpro > 1) ? prec->tpro-1 : 0; // to avoid debug for habitual TPRO=1
 
-            if(uaItem->stat)
+            if(OpcUa_IsNotGood(uaItem->stat))
                 ret = 1; // something failed
 
             if(!ret)

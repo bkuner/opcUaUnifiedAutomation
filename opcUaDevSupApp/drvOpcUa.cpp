@@ -320,6 +320,7 @@ long OpcUaSetupMonitors(void)
         return 1;
     }
     if(pMyClient->getDebug() > 1) errlogPrintf("OpcUaSetupMonitors READ of %d values returned ok\n", values.length());
+
     for(OpcUa_UInt32 i=0; i<values.length(); i++) {
         OPCUA_ItemINFO* uaItem = pMyClient->vUaItemInfo[i];
         if (OpcUa_IsBad(values[i].StatusCode)) {
@@ -333,16 +334,23 @@ long OpcUaSetupMonitors(void)
                 errlogPrintf("%s: Read attribs' failed with status %s\n",uaItem->prec->name,
                              UaStatus(attribs[i].StatusCode).toString().toUtf8());
             }
+            else if(! ((int)values[i].Value.ArrayType == uaItem->isArray)) {
+                uaItem->stat = OpcUa_BadOutOfRange;
+                if((int)values[i].Value.ArrayType)
+                    errlogPrintf("%s: scalar record try to read array data\n",uaItem->prec->name);
+                else
+                    errlogPrintf("%s: array record try to read scalar data\n",uaItem->prec->name);
+            }
             else {
                 UaVariant var = attribs[i].Value;
                 var.toUInt32(uaItem->userAccLvl);
+                uaItem->stat = OpcUa_Good;
             }
             epicsMutexLock(uaItem->flagLock);
             uaItem->itemDataType = (int) values[i].Value.Datatype;
             epicsMutexUnlock(uaItem->flagLock);
 
-            uaItem->stat = ((uaItem->stat == 0) & ((int)values[i].Value.ArrayType == uaItem->isArray)) ? 0 : 1;
-            if(pMyClient->getDebug() > 0) {
+            if(pMyClient->getDebug() > 1) {
                 if(uaItem->checkDataLoss()) {
                     if ((int) uaItem->inpDataType) // OUT-Record
                         errlogPrintf("%20s: write may loose data: %s -> %s\n",uaItem->prec->name,epicsTypeNames[uaItem->recDataType],
