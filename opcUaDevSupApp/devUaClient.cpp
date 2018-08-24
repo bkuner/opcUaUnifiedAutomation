@@ -163,10 +163,10 @@ UaStatus DevUaClient::connect()
 
     // Provide information about the client
     SessionConnectInfo sessionConnectInfo;
-    sessionConnectInfo.sApplicationName = "HelmholtzgesellschaftBerlin Test Client";
+    sessionConnectInfo.sApplicationName = "Helmholtz-Gesellschaft Berlin opcuaEpicsDeviceSupport";
     // Use the host name to generate a unique application URI
-    sessionConnectInfo.sApplicationUri  = UaString("urn:%1:HelmholtzgesellschaftBerlin:TestClient").arg(hostName);
-    sessionConnectInfo.sProductUri      = "urn:HelmholtzgesellschaftBerlin:TestClient";
+    sessionConnectInfo.sApplicationUri  = UaString("urn:HelmholtzGesellschaftBerlin:opcuaEpicsDeviceSupport").arg(hostName);
+    sessionConnectInfo.sProductUri      = "urn:HelmholtzGesellschaftBerlin:opcuaEpicsDeviceSupport";
     sessionConnectInfo.sSessionName     = sessionConnectInfo.sApplicationUri;
 
     // Security settings are not initialized - we connect without security for now
